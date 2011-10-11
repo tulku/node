@@ -47,6 +47,7 @@
 // #ifdef _WIN32
 // # define PTW32_STATIC_LIB 1
 // #endif
+#include <limits.h>
 #if _POSIX_MEMLOCK || _POSIX_MEMLOCK_RANGE || _POSIX_MAPPED_FILES
 # include <sys/mman.h>
 #endif
@@ -59,7 +60,6 @@
 #include <errno.h>
 #include <sys/types.h>
 #include <sys/stat.h>
-#include <limits.h>
 #include <fcntl.h>
 #include <assert.h>
 
