@@ -113,7 +113,7 @@ typedef pthread_cond_t xcond_t;
 
 typedef pthread_t xthread_t;
 #define X_THREAD_PROC(name) static void *name (void *thr_arg)
-#define X_THREAD_ATFORK(prepare,parent,child) pthread_atfork (prepare, parent, child)
+#define X_THREAD_ATFORK(prepare,parent,child) //pthread_atfork (prepare, parent, child)
 
 // the broken bsd's once more
 #ifndef PTHREAD_STACK_MIN
