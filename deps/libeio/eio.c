@@ -60,7 +60,7 @@
 #include <fcntl.h>
 #include <assert.h>
 
-#ifndef _WIN32
+#ifdef HAVE_STATVFS 
 #include <sys/statvfs.h>
 #endif
 
@@ -1729,7 +1729,7 @@ static void eio_execute (etp_worker *self, eio_req *req)
       case EIO_FSTAT:     ALLOC (sizeof (EIO_STRUCT_STAT));
                           req->result = fstat     (req->int1, (EIO_STRUCT_STAT *)req->ptr2); break;
 
-#ifndef _WIN32
+#ifdef HAVE_STATVFS
       case EIO_STATVFS:   ALLOC (sizeof (EIO_STRUCT_STATVFS));
                           req->result = statvfs   (req->ptr1, (EIO_STRUCT_STATVFS *)req->ptr2); break;
       case EIO_FSTATVFS:  ALLOC (sizeof (EIO_STRUCT_STATVFS));
