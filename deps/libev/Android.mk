@@ -18,17 +18,14 @@ include $(CLEAR_VARS)
 
 LOCAL_MODULE    := ev 
 LOCAL_SRC_FILES := \
-	ev.c \
-#	ev_epoll.c \
-#	ev_kqueue.c \
-#	ev_poll.c \
-#	ev_port.c \
-	ev_select.c \
-	event.c
+	ev.c
 
 LOCAL_CFLAGS += \
 	-DEV_FORK_ENABLE=0 \
 	-DEV_EMBED_ENABLE=0 \
 	-DEV_MULTIPLICITY=0 \
+	-DHAVE_SELECT \
+	-DHAVE_SYS_SELECT_H \
+	-DEV_SELECT_USE_FD_SET \
 	-include ev.h
 include $(BUILD_SHARED_LIBRARY)
