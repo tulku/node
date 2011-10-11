@@ -47,6 +47,9 @@
 // #ifdef _WIN32
 // # define PTW32_STATIC_LIB 1
 // #endif
+#if _POSIX_MEMLOCK || _POSIX_MEMLOCK_RANGE || _POSIX_MAPPED_FILES
+# include <sys/mman.h>
+#endif
 #include "xthread.h"
 
 #include <errno.h>
@@ -103,10 +106,6 @@
 # include <utime.h>
 # include <signal.h>
 # include <dirent.h>
-
-#if _POSIX_MEMLOCK || _POSIX_MEMLOCK_RANGE || _POSIX_MAPPED_FILES
-# include <sys/mman.h>
-#endif
 
 /* POSIX_SOURCE is useless on bsd's, and XOPEN_SOURCE is unreliable there, too */
 # if __FreeBSD__ || defined __NetBSD__ || defined __OpenBSD__
