@@ -16,7 +16,8 @@ LOCAL_PATH := $(call my-dir)
 
 include $(CLEAR_VARS)
 
-LOCAL_MODULE    := ev 
+LOCAL_MODULE    := ev
+
 LOCAL_SRC_FILES := \
 	ev.c
 
@@ -28,4 +29,8 @@ LOCAL_CFLAGS += \
 	-DHAVE_SYS_SELECT_H \
 	-DEV_SELECT_USE_FD_SET \
 	-include ev.h
-include $(BUILD_SHARED_LIBRARY)
+
+LOCAL_EXPORT_C_INCLUDES := \
+	$(LOCAL_PATH)
+
+include $(BUILD_STATIC_LIBRARY)

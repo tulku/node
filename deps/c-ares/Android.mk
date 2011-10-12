@@ -16,9 +16,11 @@ LOCAL_PATH := $(call my-dir)
 
 include $(CLEAR_VARS)
 
-LOCAL_MODULE    := c-ares
+LOCAL_MODULE := c-ares
+
 LOCAL_C_INCLUDES += \
-	android/
+	$(LOCAL_PATH) \
+	$(LOCAL_PATH)/android
  
 LOCAL_SRC_FILES := \
 	ares__close_sockets.c \
@@ -68,5 +70,9 @@ LOCAL_SRC_FILES := \
 LOCAL_CFLAGS += \
 	-DHAVE_CONFIG_H \
 	-include sys/select.h
+	
+LOCAL_EXPORT_C_INCLUDES := \
+	$(LOCAL_PATH) \
+	$(LOCAL_PATH)/android
 
-include $(BUILD_SHARED_LIBRARY)
+include $(BUILD_STATIC_LIBRARY)

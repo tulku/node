@@ -16,9 +16,13 @@ LOCAL_PATH := $(call my-dir)
 
 include $(CLEAR_VARS)
 
-LOCAL_MODULE    := eio 
+LOCAL_MODULE    := eio
+
 LOCAL_SRC_FILES := eio.c
 
 LOCAL_CFLAGS +=
 
-include $(BUILD_SHARED_LIBRARY)
+LOCAL_EXPORT_C_INCLUDES := \
+	$(LOCAL_PATH)
+
+include $(BUILD_STATIC_LIBRARY)
