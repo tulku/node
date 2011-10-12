@@ -1422,6 +1422,7 @@ static Handle<Value> SetGid(const Arguments& args) {
     gid = args[0]->Int32Value();
   } else if (args[0]->IsString()) {
     String::Utf8Value grpnam(args[0]->ToString());
+#if __REENTRANT_GRP__
     struct group grp, *grpp = NULL;
     int err;
 
@@ -1429,6 +1430,13 @@ static Handle<Value> SetGid(const Arguments& args) {
         grpp == NULL) {
       return ThrowException(ErrnoException(errno, "getgrnam_r"));
     }
+#else
+    struct group *grpp = NULL;
+
+    if ((grpp = getgrnam(*grpnam)) == NULL) {
+      return ThrowException(ErrnoException(errno, "getgrnam_r"));
+    }
+#endif //__REENTRANT_GRP__
 
     gid = grpp->gr_gid;
   } else {
@@ -1457,6 +1465,7 @@ static Handle<Value> SetUid(const Arguments& args) {
     uid = args[0]->Int32Value();
   } else if (args[0]->IsString()) {
     String::Utf8Value pwnam(args[0]->ToString());
+#if __REENTRANT_GRP__
     struct passwd pwd, *pwdp = NULL;
     int err;
 
@@ -1464,6 +1473,13 @@ static Handle<Value> SetUid(const Arguments& args) {
         pwdp == NULL) {
       return ThrowException(ErrnoException(errno, "getpwnam_r"));
     }
+#else
+    struct passwd *pwdp = NULL;
+
+    if ((pwdp = getpwnam(*pwnam)) == NULL) {
+      return ThrowException(ErrnoException(errno, "getpwnam"));
+    }
+#endif //__REENTRANT_GRP__
 
     uid = pwdp->pw_uid;
   } else {

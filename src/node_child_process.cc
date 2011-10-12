@@ -383,12 +383,15 @@ int ChildProcess::Spawn(const char *file,
       }
 
 
+#if __REENTRANT_GRP__
       static char buf[PATH_MAX + 1];
+#endif //__REENTRANT_GRP__
 
       int gid = -1;
       if (custom_gid != -1) {
         gid = custom_gid;
       } else if (custom_gname != NULL) {
+#if __REENTRANT_GRP__
         struct group grp, *grpp = NULL;
         int err = getgrnam_r(custom_gname,
                              &grp,
@@ -400,7 +403,13 @@ int ChildProcess::Spawn(const char *file,
           perror("getgrnam_r()");
           _exit(127);
         }
-
+#else
+        struct group *grpp = getgrnam(custom_gname);
+        if (grpp == NULL) {
+          perror("getgrnam()");
+          _exit(127);
+        }
+#endif //__REENTRANT_GRP__
         gid = grpp->gr_gid;
       }
 
@@ -409,6 +418,7 @@ int ChildProcess::Spawn(const char *file,
       if (custom_uid != -1) {
         uid = custom_uid;
       } else if (custom_uname != NULL) {
+#if __REENTRANT_GRP__
         struct passwd pwd, *pwdp = NULL;
         int err = getpwnam_r(custom_uname,
                              &pwd,
@@ -420,6 +430,13 @@ int ChildProcess::Spawn(const char *file,
           perror("getpwnam_r()");
           _exit(127);
         }
+#else
+        struct passwd *pwdp = getpwnam(custom_uname);
+        if (pwdp == NULL) {
+          perror("getpwnam()");
+          _exit(127);
+        }
+#endif //__REENTRANT_GRP__
 
         uid = pwdp->pw_uid;
       }
