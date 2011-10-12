@@ -31,7 +31,7 @@
 # include <sys/socket.h>
 # include <netdb.h>
 
-# include <arpa/nameser.h>
+# include <ares_nameser.h>
 # include <arpa/inet.h>
 #endif
 
