@@ -32,6 +32,8 @@
 #endif
 #ifdef HAVE_ARPA_NAMESER_COMPAT_H
 #  include <arpa/nameser_compat.h>
+#else
+#  include "nameser_compat.h"
 #endif
 
 #ifdef HAVE_STRINGS_H
