@@ -32,16 +32,7 @@
 #ifdef HAVE_NETDB_H
 #  include <netdb.h>
 #endif
-#ifdef HAVE_ARPA_NAMESER_H
-#  include <arpa/nameser.h>
-#else
-#  include "nameser.h"
-#endif
-#ifdef HAVE_ARPA_NAMESER_COMPAT_H
-#  include <arpa/nameser_compat.h>
-#else
-#  include "nameser_compat.h"
-#endif
+#include "ares_nameser.h"
 
 #ifdef HAVE_SYS_TIME_H
 #  include <sys/time.h>

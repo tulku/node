@@ -27,16 +27,7 @@
 #ifdef HAVE_ARPA_INET_H
 #  include <arpa/inet.h>
 #endif
-#ifdef HAVE_ARPA_NAMESER_H
-#  include <arpa/nameser.h>
-#else
-#  include "nameser.h"
-#endif
-#ifdef HAVE_ARPA_NAMESER_COMPAT_H
-#  include <arpa/nameser_compat.h>
-#else
-#  include "nameser_compat.h"
-#endif
+#include "ares_nameser.h"
 
 #include <stdio.h>
 #include <stdlib.h>
