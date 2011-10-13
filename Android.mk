@@ -12,7 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-LOCAL_PATH  := $(call my-dir)
+LOCAL_PATH      := $(call my-dir)
+NDK_MODULE_PATH := $(LOCAL_PATH)
 
 ifndef NODE_PREFIX
 	NODE_PREFIX := $(LOCAL_PATH)
@@ -29,17 +30,9 @@ LOCAL_MODULE := node
 
 LOCAL_CPP_EXTENSION := .cc
 
-# FIXME: create a generic dependency that derives from
-# LOCAL_EXPORT_INCLUDES for the deps
 LOCAL_C_INCLUDES += \
 	$(intermediates)/src \
-	src \
-	deps/c-ares \
-	deps/c-ares/android \
-	deps/libev \
-	deps/libeio \
-	deps/http_parser \
-	deps/v8/include
+	src
 	
 LOCAL_SRC_FILES := \
 	src/node.cc \
@@ -75,12 +68,16 @@ ifdef ANDROID_PATH_OPENSSL
 endif
 
 LOCAL_STATIC_LIBRARIES := \
-	deps/c-ares \
-	deps/libev \
-	deps/libeio \
-	deps/http_parser
+	c-ares \
+	libev \
+	libeio \
+	http_parser \
+	v8
 	
 LOCAL_CFLAGS += \
+	-DEV_FORK_ENABLE=0 \
+	-DEV_EMBED_ENABLE=0 \
+	-DEV_MULTIPLICITY=0 \
 	-D__POSIX__ \
 	-DNODE_CFLAGS=\"\" \
 	-DNODE_PREFIX=\"$(NODE_PREFIX)\" \
@@ -88,3 +85,9 @@ LOCAL_CFLAGS += \
 	-include sys/select.h
 
 include $(BUILD_SHARED_LIBRARY)
+
+$(call import-module,deps/c-ares)
+$(call import-module,deps/libev)
+$(call import-module,deps/libeio)
+$(call import-module,deps/http_parser)
+$(call import-module,deps/v8)
