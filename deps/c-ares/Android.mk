@@ -71,8 +71,6 @@ LOCAL_CFLAGS += \
 	-DHAVE_CONFIG_H \
 	-include sys/select.h
 	
-LOCAL_EXPORT_C_INCLUDES := \
-	$(LOCAL_PATH) \
-	$(LOCAL_PATH)/android
+LOCAL_EXPORT_C_INCLUDES := $(LOCAL_C_INCLUDES)
 
 include $(BUILD_STATIC_LIBRARY)
