@@ -584,7 +584,11 @@ static void* ThreadEntry(void* arg) {
   // This is also initialized by the first argument to pthread_create() but we
   // don't know which thread will run first (the original thread or the new
   // one) so we initialize it here too.
+#ifdef __ANDROID__
+  prctl(PR_SET_NAME, (unsigned long)thread->name(), 0, 0, 0);
+#else
   prctl(PR_SET_NAME, thread->name(), 0, 0, 0);
+#endif //__ANDROID__
   thread->thread_handle_data()->thread_ = pthread_self();
   ASSERT(thread->IsValid());
   thread->Run();
