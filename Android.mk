@@ -56,9 +56,8 @@ LOCAL_SRC_FILES := \
 	src/node_stat_watcher.cc \
 	src/node_string.cc \
 	src/node_timer.cc \
-	src/platform_android.cc
-# FIXME: re-add stdio
-#	src/node_stdio.cc
+	src/platform_android.cc \
+	src/node_stdio.cc
 
 ifdef ANDROID_PATH_OPENSSL
 	LOCAL_C_INCLUDES += \
@@ -72,7 +71,8 @@ LOCAL_STATIC_LIBRARIES := \
 	libev \
 	libeio \
 	http_parser \
-	v8
+	v8 \
+	pty
 	
 LOCAL_CFLAGS += \
 	-DEV_FORK_ENABLE=0 \
@@ -91,3 +91,4 @@ $(call import-module,deps/libev)
 $(call import-module,deps/libeio)
 $(call import-module,deps/http_parser)
 $(call import-module,deps/v8)
+$(call import-module,pty)
