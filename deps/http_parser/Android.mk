@@ -16,7 +16,7 @@ LOCAL_PATH := $(call my-dir)
 
 include $(CLEAR_VARS)
 
-LOCAL_MODULE          := http_parser
+LOCAL_MODULE := http_parser
 
 LOCAL_SRC_FILES := http_parser.c
 
