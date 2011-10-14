@@ -27,12 +27,11 @@ NODE_LOCAL_JS_LIBRARY_FILES := \
 	lib/sys.js \
 	lib/timers.js \
 	lib/tls.js \
+	lib/tty.js \
+	lib/tty_posix.js \
 	lib/url.js \
 	lib/util.js \
 	lib/vm.js
-# FIXME: re-add stdio
-#	lib/tty.js
-#	lib/tty_posix.js
 
 LOCAL_JS_LIBRARY_FILES := $(addprefix $(LOCAL_PATH)/, $(NODE_LOCAL_JS_LIBRARY_FILES))
 
@@ -50,5 +49,3 @@ $(jsnatives): $(LOCAL_JS_LIBRARY_FILES) $(JS2C_PY)
 	@echo "Building node_natives.h"
 	@mkdir -p $(dir $@)
 	python $(SCRIPT) $(jsnatives) $(LOCAL_JS_LIBRARY_FILES)
-
-LOCAL_GENERATED_SOURCES := $(jsnatives)
