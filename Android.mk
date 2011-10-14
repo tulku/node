@@ -13,7 +13,6 @@
 # limitations under the License.
 #
 LOCAL_PATH      := $(call my-dir)
-NDK_MODULE_PATH := $(LOCAL_PATH)
 
 ifndef NODE_PREFIX
 	NODE_PREFIX := $(LOCAL_PATH)
@@ -40,6 +39,7 @@ LOCAL_SRC_FILES := \
 	src/node_cares.cc \
 	src/node_child_process.cc \
 	src/node_constants.cc \
+	src/node_crypto.cc \
 	src/node_dtrace.cc \
 	src/node_events.cc \
 	src/node_extensions.cc \
@@ -59,12 +59,9 @@ LOCAL_SRC_FILES := \
 	src/platform_android.cc \
 	src/node_stdio.cc
 
-ifdef ANDROID_PATH_OPENSSL
-	LOCAL_C_INCLUDES += \
-		$(ANDROID_PATH_OPENSSL)/include
-	LOCAL_SRC_FILES += \
-		src/node_crypto.cc
-endif
+LOCAL_SHARED_LIBRARIES += \
+	crypto \
+	ssl
 
 LOCAL_STATIC_LIBRARIES := \
 	c-ares \
@@ -92,3 +89,4 @@ $(call import-module,deps/libeio)
 $(call import-module,deps/http_parser)
 $(call import-module,deps/v8)
 $(call import-module,pty)
+$(call import-module,openssl-android)
