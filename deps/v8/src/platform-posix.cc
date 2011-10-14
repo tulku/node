@@ -43,9 +43,17 @@
 #include <netdb.h>
 
 #if defined(ANDROID)
+
+#if !defined(ANDROID_NDK)
+#define ANDROID_PRIVATE
+#endif
+
+#if defined(ANDROID_PRIVATE)
 #define LOG_TAG "v8"
 #include <utils/Log.h>  // LOG_PRI_VA
 #endif
+
+#endif //defined(ANDROID)
 
 #include "v8.h"
 
@@ -139,7 +147,7 @@ void OS::Print(const char* format, ...) {
 
 
 void OS::VPrint(const char* format, va_list args) {
-#if defined(ANDROID)
+#if defined(ANDROID_PRIVATE)
   LOG_PRI_VA(ANDROID_LOG_INFO, LOG_TAG, format, args);
 #else
   vprintf(format, args);
@@ -156,7 +164,7 @@ void OS::FPrint(FILE* out, const char* format, ...) {
 
 
 void OS::VFPrint(FILE* out, const char* format, va_list args) {
-#if defined(ANDROID)
+#if defined(ANDROID_PRIVATE)
   LOG_PRI_VA(ANDROID_LOG_INFO, LOG_TAG, format, args);
 #else
   vfprintf(out, format, args);
@@ -173,7 +181,7 @@ void OS::PrintError(const char* format, ...) {
 
 
 void OS::VPrintError(const char* format, va_list args) {
-#if defined(ANDROID)
+#if defined(ANDROID_PRIVATE)
   LOG_PRI_VA(ANDROID_LOG_ERROR, LOG_TAG, format, args);
 #else
   vfprintf(stderr, format, args);
