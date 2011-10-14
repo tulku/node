@@ -1,0 +1,8 @@
+1. Check all CC flags, implement in all modules
+2. Programmatic generation of macros.py
+3. Build as shared lib
+4: exit() changes for shared lib
+5. JNI binding and test app
+6. Reverse JNI infrastructure, attach thread on spawn, JNIEnv management
+7. Native object integration and java bridge
+
