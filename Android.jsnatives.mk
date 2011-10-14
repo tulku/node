@@ -31,7 +31,8 @@ NODE_LOCAL_JS_LIBRARY_FILES := \
 	lib/tty_posix.js \
 	lib/url.js \
 	lib/util.js \
-	lib/vm.js
+	lib/vm.js \
+	macros.py
 
 PATH_LOCAL_JS_LIBRARY_FILES := $(addprefix $(LOCAL_PATH)/, $(NODE_LOCAL_JS_LIBRARY_FILES))
 
