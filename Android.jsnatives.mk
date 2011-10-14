@@ -33,7 +33,7 @@ NODE_LOCAL_JS_LIBRARY_FILES := \
 	lib/util.js \
 	lib/vm.js
 
-LOCAL_JS_LIBRARY_FILES := $(addprefix $(LOCAL_PATH)/, $(NODE_LOCAL_JS_LIBRARY_FILES))
+PATH_LOCAL_JS_LIBRARY_FILES := $(addprefix $(LOCAL_PATH)/, $(NODE_LOCAL_JS_LIBRARY_FILES))
 
 # FIXME: Copy js2c.py to intermediates directory and invoke there to avoid generating
 # jsmin.pyc in the source directory
@@ -45,7 +45,7 @@ LOCAL_JS_LIBRARY_FILES := $(addprefix $(LOCAL_PATH)/, $(NODE_LOCAL_JS_LIBRARY_FI
 # Generate node_natives.h
 jsnatives := $(intermediates)/src/node_natives.h
 $(jsnatives): SCRIPT := tools/js2c.py
-$(jsnatives): $(LOCAL_JS_LIBRARY_FILES) $(JS2C_PY)
+$(jsnatives): $(PATH_LOCAL_JS_LIBRARY_FILES) $(JS2C_PY)
 	@echo "Building node_natives.h"
 	@mkdir -p $(dir $@)
-	python $(SCRIPT) $(jsnatives) $(LOCAL_JS_LIBRARY_FILES)
+	python $(SCRIPT) $(jsnatives) $(PATH_LOCAL_JS_LIBRARY_FILES)
