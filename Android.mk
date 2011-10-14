@@ -81,7 +81,7 @@ LOCAL_CFLAGS += \
 	-DPLATFORM=\"android\" \
 	-include sys/select.h
 
-include $(BUILD_SHARED_LIBRARY)
+include $(BUILD_EXECUTABLE)
 
 $(call import-module,deps/c-ares)
 $(call import-module,deps/libev)
