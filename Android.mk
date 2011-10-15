@@ -70,16 +70,40 @@ LOCAL_STATIC_LIBRARIES := \
 	http_parser \
 	v8 \
 	pty
+
+# debug
+ifeq ($(debug),true)
+LOCAL_CFLAGS += \
+	-DDEBUG \
+	-g \
+	-O0 \
+	-Wall \
+	-Wextra
+endif
+
+# common flags
+LOCAL_CFLAGS += \
+	-D__POSIX__ \
+	-DX_STACKSIZE=65536 \
+	-D_LARGEFILE_SOURCE \
+	-D_FILE_OFFSET_BITS=64 \
+	-DHAVE_FDATASYNC=1 \
+	-D_FORTIFY_SOURCE=2 \
+	-DPLATFORM=\"android\" \
+	-Wno-unused-parameter
 	
+# node
+LOCAL_CFLAGS += \
+	-DHAVE_OPENSSL \
+	-DNODE_CFLAGS=\"\" \
+	-DNODE_PREFIX=\"$(NODE_PREFIX)\" \
+	-include sys/select.h
+
+# ev
 LOCAL_CFLAGS += \
 	-DEV_FORK_ENABLE=0 \
 	-DEV_EMBED_ENABLE=0 \
-	-DEV_MULTIPLICITY=0 \
-	-D__POSIX__ \
-	-DNODE_CFLAGS=\"\" \
-	-DNODE_PREFIX=\"$(NODE_PREFIX)\" \
-	-DPLATFORM=\"android\" \
-	-include sys/select.h
+	-DEV_MULTIPLICITY=0
 
 include $(BUILD_EXECUTABLE)
 

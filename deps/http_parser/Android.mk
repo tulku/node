@@ -20,6 +20,28 @@ LOCAL_MODULE := http_parser
 
 LOCAL_SRC_FILES := http_parser.c
 
+# debug
+ifeq ($(debug),true)
+LOCAL_CFLAGS += \
+	-DHTTP_PARSER_STRICT=1 \
+	-DDEBUG \
+	-g \
+	-O0 \
+	-Wall \
+	-Wextra
+endif
+
+# common flags
+LOCAL_CFLAGS += \
+	-D__POSIX__ \
+	-DX_STACKSIZE=65536 \
+	-D_LARGEFILE_SOURCE \
+	-D_FILE_OFFSET_BITS=64 \
+	-DHAVE_FDATASYNC=1 \
+	-D_FORTIFY_SOURCE=2 \
+	-DPLATFORM=\"android\" \
+	-Wno-unused-parameter
+
 LOCAL_EXPORT_C_INCLUDES := \
 	$(LOCAL_PATH)
 
