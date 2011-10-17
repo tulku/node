@@ -70,7 +70,7 @@ LOCAL_CFLAGS += \
 	-fno-exceptions \
 	-DENABLE_DEBUGGER_SUPPORT \
 	-DV8_NATIVE_REGEXP \
-	-fvisibility=default \
+	-fvisibility=hidden \
 	-DANDROID_NDK
 
 ifeq ($(TARGET_ARCH),arm)
