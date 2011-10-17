@@ -47,6 +47,10 @@
 # include <grp.h> /* getgrnam() */
 #endif
 
+#ifdef __LIBNODE__
+#include "lib_wrapper.h"
+#endif
+
 #include "platform.h"
 #include <node_buffer.h>
 #include <node_io_watcher.h>
@@ -2213,7 +2217,7 @@ static void ParseArgs(int *argc, char **argv) {
 }
 
 
-static void AtExit() {
+void AtExit() {
   node::Stdio::Flush();
   node::Stdio::DisableRawMode(STDIN_FILENO);
 }
