@@ -12,18 +12,22 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-# This file builds a static library suitable for inclusion in a 
-# shared library (eg for JNI).
-
-LOCAL_PATH := $(call my-dir)
+LOCAL_PATH      := $(call my-dir)
 include $(LOCAL_PATH)/Android.common.mk
 
-LOCAL_SRC_FILES += src/lib_wrapper.cc
+LOCAL_SHARED_LIBRARIES += \
+	crypto \
+	ssl
 
-# to override exit handling in node.cc
-LOCAL_CFLAGS += -D__LIBNODE__
+LOCAL_STATIC_LIBRARIES := \
+	c-ares \
+	libev \
+	libeio \
+	http_parser \
+	v8 \
+	pty
 
-include $(BUILD_STATIC_LIBRARY)
+include $(BUILD_EXECUTABLE)
 
 $(call import-module,deps/c-ares)
 $(call import-module,deps/libev)
