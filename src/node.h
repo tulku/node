@@ -38,6 +38,7 @@
 namespace node {
 
 int Start (int argc, char *argv[]);
+void AtExit();
 
 #define NODE_PSYMBOL(s) v8::Persistent<v8::String>::New(v8::String::NewSymbol(s))
 
