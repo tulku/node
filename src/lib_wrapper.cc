@@ -28,5 +28,8 @@ int libnode_Start(int argc, char *argv[]) {
 	return exitval>>1;
 }
 
-/* Stop the node instance (FIXME) */
-int libnode_Stop(int signum) {return 0;}
+/* Stop the node instance */
+int libnode_Stop(int signum) {
+	node::Stop(signum);
+	return 0;
+}
