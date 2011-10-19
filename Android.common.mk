@@ -22,7 +22,7 @@ include $(CLEAR_VARS)
 intermediates := $(LOCAL_PATH)/out/$(APP_OPTIM)
 
 include $(LOCAL_PATH)/Android.jsnatives.mk
-src/node_javascript.cc : $(jsnatives)
+$(LOCAL_PATH)/src/node_javascript.cc : $(jsnatives)
 
 LOCAL_MODULE := node
 
