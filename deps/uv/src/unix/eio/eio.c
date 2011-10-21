@@ -270,7 +270,9 @@ static int gettimeofday(struct timeval *tv, struct timezone *tz)
 
   #include <sys/time.h>
   #include <sys/select.h>
-  #include <sys/statvfs.h>
+  #ifdef HAVE_STATVFS
+    #include <sys/statvfs.h>
+  #endif
   #include <unistd.h>
   #include <signal.h>
   #include <dirent.h>
@@ -2192,10 +2194,12 @@ eio_execute (etp_worker *self, eio_req *req)
       case EIO_FSTAT:     ALLOC (sizeof (EIO_STRUCT_STAT));
                           req->result = fstat     (req->int1, (EIO_STRUCT_STAT *)req->ptr2); break;
 
+#ifdef HAVE_STATVFS
       case EIO_STATVFS:   ALLOC (sizeof (EIO_STRUCT_STATVFS));
                           req->result = statvfs   (req->ptr1, (EIO_STRUCT_STATVFS *)req->ptr2); break;
       case EIO_FSTATVFS:  ALLOC (sizeof (EIO_STRUCT_STATVFS));
                           req->result = fstatvfs  (req->int1, (EIO_STRUCT_STATVFS *)req->ptr2); break;
+#endif
 
       case EIO_CHOWN:     req->result = chown     (req->ptr1, req->int2, req->int3); break;
       case EIO_FCHOWN:    req->result = fchown    (req->int1, req->int2, req->int3); break;
