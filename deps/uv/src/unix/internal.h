@@ -33,7 +33,8 @@
 #undef HAVE_KQUEUE
 #undef HAVE_PORTS_FS
 
-#if defined(__linux__)
+#if defined(ANDROID)
+#elif defined(__linux__)
 
 #include <linux/version.h>
 #include <features.h>
