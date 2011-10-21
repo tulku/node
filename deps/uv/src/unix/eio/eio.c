@@ -53,6 +53,11 @@
 #ifdef EIO_STACKSIZE
 # define X_STACKSIZE EIO_STACKSIZE
 #endif
+#include <limits.h>
+#if _POSIX_MEMLOCK || _POSIX_MEMLOCK_RANGE || _POSIX_MAPPED_FILES
+  #include <sys/mman.h>
+#endif
+
 #include "xthread.h"
 
 #include <errno.h>
@@ -62,7 +67,6 @@
 #include <errno.h>
 #include <sys/types.h>
 #include <sys/stat.h>
-#include <limits.h>
 #include <fcntl.h>
 #include <assert.h>
 
@@ -270,10 +274,6 @@ static int gettimeofday(struct timeval *tv, struct timezone *tz)
   #include <unistd.h>
   #include <signal.h>
   #include <dirent.h>
-
-  #if _POSIX_MEMLOCK || _POSIX_MEMLOCK_RANGE || _POSIX_MAPPED_FILES
-    #include <sys/mman.h>
-  #endif
 
   #define D_NAME(entp) entp->d_name
 
