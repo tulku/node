@@ -2191,7 +2191,7 @@ Handle<Object> SetupProcessObject(int argc, char *argv[]) {
 }
 
 
-static void AtExit() {
+void AtExit() {
   uv_tty_reset_mode();
 }
 
@@ -2560,5 +2560,9 @@ int Start(int argc, char *argv[]) {
   return 0;
 }
 
+void Stop(int signum) {
+	ev_unloop(EV_DEFAULT_UC_ EVUNLOOP_ALL);
+	ev_feed_signal(signum);
+}
 
 }  // namespace node

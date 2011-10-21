@@ -69,6 +69,8 @@
 namespace node {
 
 int Start(int argc, char *argv[]);
+void Stop(int signum);
+void AtExit();
 
 char** Init(int argc, char *argv[]);
 v8::Handle<v8::Object> SetupProcessObject(int argc, char *argv[]);
