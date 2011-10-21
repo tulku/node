@@ -53,6 +53,11 @@
 #ifdef EIO_STACKSIZE
 # define X_STACKSIZE EIO_STACKSIZE
 #endif
+#include <limits.h>
+#if _POSIX_MEMLOCK || _POSIX_MEMLOCK_RANGE || _POSIX_MAPPED_FILES
+  #include <sys/mman.h>
+#endif
+
 #include "xthread.h"
 
 #include <errno.h>
@@ -62,7 +67,6 @@
 #include <errno.h>
 #include <sys/types.h>
 #include <sys/stat.h>
-#include <limits.h>
 #include <fcntl.h>
 #include <assert.h>
 
@@ -266,14 +270,12 @@ static int gettimeofday(struct timeval *tv, struct timezone *tz)
 
   #include <sys/time.h>
   #include <sys/select.h>
-  #include <sys/statvfs.h>
+  #ifdef HAVE_STATVFS
+    #include <sys/statvfs.h>
+  #endif
   #include <unistd.h>
   #include <signal.h>
   #include <dirent.h>
-
-  #if _POSIX_MEMLOCK || _POSIX_MEMLOCK_RANGE || _POSIX_MAPPED_FILES
-    #include <sys/mman.h>
-  #endif
 
   #define D_NAME(entp) entp->d_name
 
@@ -2192,10 +2194,12 @@ eio_execute (etp_worker *self, eio_req *req)
       case EIO_FSTAT:     ALLOC (sizeof (EIO_STRUCT_STAT));
                           req->result = fstat     (req->int1, (EIO_STRUCT_STAT *)req->ptr2); break;
 
+#ifdef HAVE_STATVFS
       case EIO_STATVFS:   ALLOC (sizeof (EIO_STRUCT_STATVFS));
                           req->result = statvfs   (req->ptr1, (EIO_STRUCT_STATVFS *)req->ptr2); break;
       case EIO_FSTATVFS:  ALLOC (sizeof (EIO_STRUCT_STATVFS));
                           req->result = fstatvfs  (req->int1, (EIO_STRUCT_STATVFS *)req->ptr2); break;
+#endif
 
       case EIO_CHOWN:     req->result = chown     (req->ptr1, req->int2, req->int3); break;
       case EIO_FCHOWN:    req->result = fchown    (req->int1, req->int2, req->int3); break;
