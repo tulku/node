@@ -28,6 +28,7 @@ V8_LOCAL_SRC_FILES += \
 LOCAL_SRC_FILES := $(V8_LOCAL_SRC_FILES)
 
 LOCAL_JS_LIBRARY_FILES := $(addprefix $(LOCAL_PATH)/, $(V8_LOCAL_JS_LIBRARY_FILES))
+LOCAL_JS_EXPERIMENTAL_LIBRARY_FILES := $(addprefix $(LOCAL_PATH)/, $(V8_LOCAL_JS_EXPERIMENTAL_LIBRARY_FILES))
 
 # Copy js2c.py to intermediates directory and invoke there to avoid generating
 # jsmin.pyc in the source directory
@@ -51,7 +52,7 @@ $(GEN2): SCRIPT := $(intermediates)/js2c.py
 $(GEN2): $(LOCAL_JS_LIBRARY_FILES) $(JS2C_PY)
 	@echo "Generating experimental-libraries.cc"
 	@mkdir -p $(dir $@)
-	python $(SCRIPT) $(GEN2) EXPERIMENTAL off $(V8_LOCAL_JS_EXPERIMENTAL_LIBRARY_FILES)
+	python $(SCRIPT) $(GEN2) EXPERIMENTAL off $(LOCAL_JS_EXPERIMENTAL_LIBRARY_FILES)
 V8_GENERATED_LIBRARIES += $(intermediates_rel)/experimental-libraries.cc
 
 LOCAL_GENERATED_SOURCES += $(V8_GENERATED_LIBRARIES)
@@ -79,7 +80,8 @@ LOCAL_CFLAGS += \
 	-DENABLE_DEBUGGER_SUPPORT \
 	-DV8_NATIVE_REGEXP \
 	-fvisibility=hidden \
-	-DV8_ANDROID_LOG_STDOUT
+	-DV8_ANDROID_LOG_STDOUT \
+	-iquote$(LOCAL_PATH)/src
 
 
 ifeq ($(TARGET_ARCH),arm)
@@ -103,7 +105,6 @@ LOCAL_SRC_FILES += $(V8_GENERATED_LIBRARIES)
 LOCAL_EXPORT_C_INCLUDES := $(LOCAL_PATH)/include
 
 LOCAL_C_INCLUDES += \
-	bionic/libc/include \
-	$(LOCAL_PATH)/src
+	bionic/libc/include
 
 include $(BUILD_STATIC_LIBRARY)
