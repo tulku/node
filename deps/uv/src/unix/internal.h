@@ -27,7 +27,8 @@
 
 #include <stddef.h> /* offsetof */
 
-#if defined(__linux__)
+#if defined(ANDROID)
+#elif defined(__linux__)
 
 #include <linux/version.h>
 #include <features.h>
