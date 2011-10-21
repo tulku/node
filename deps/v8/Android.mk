@@ -71,7 +71,8 @@ LOCAL_CFLAGS += \
 	-DENABLE_DEBUGGER_SUPPORT \
 	-DV8_NATIVE_REGEXP \
 	-fvisibility=hidden \
-	-DANDROID_NDK
+	-DANDROID_NDK \
+	-iquote$(LOCAL_PATH)/src
 
 ifeq ($(TARGET_ARCH),arm)
 	LOCAL_CFLAGS += -DARM -DV8_TARGET_ARCH_ARM
@@ -93,6 +94,7 @@ LOCAL_SRC_FILES += $(V8_GENERATED_LIBRARIES)
 
 LOCAL_EXPORT_C_INCLUDES := $(LOCAL_PATH)/include
 
-LOCAL_C_INCLUDES += bionic/libc/include $(LOCAL_PATH)/src
+#LOCAL_C_INCLUDES += bionic/libc/include $(LOCAL_PATH)/src
+LOCAL_C_INCLUDES += bionic/libc/include
 
 include $(BUILD_STATIC_LIBRARY)
