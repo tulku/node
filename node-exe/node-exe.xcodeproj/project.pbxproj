@@ -1,0 +1,259 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 46;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		035A6D9614572CC400F984A0 /* libhttp_parser.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 035A6D9514572CC400F984A0 /* libhttp_parser.a */; };
+		035A6D9814572CC900F984A0 /* libnode-static.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 035A6D9714572CC900F984A0 /* libnode-static.a */; };
+		035A6D9A14572CCF00F984A0 /* libuv.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 035A6D9914572CCF00F984A0 /* libuv.a */; };
+		035A6D9C14572CD300F984A0 /* libv8_nosnapshot.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 035A6D9B14572CD300F984A0 /* libv8_nosnapshot.a */; };
+		035A6D9E14572E4E00F984A0 /* Carbon.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 035A6D9D14572E4E00F984A0 /* Carbon.framework */; };
+		035A6DA014572E6800F984A0 /* libz.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 035A6D9F14572E6800F984A0 /* libz.dylib */; };
+		035A6DA214572E7200F984A0 /* libssl.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 035A6DA114572E7200F984A0 /* libssl.dylib */; };
+		035A6DA414572E8D00F984A0 /* libcrypto.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 035A6DA314572E8D00F984A0 /* libcrypto.dylib */; };
+		03E649F0145EF880003A94B9 /* main.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 03E649EF145EF880003A94B9 /* main.cpp */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		035A6D8614572B9D00F984A0 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 12;
+			dstPath = .;
+			dstSubfolderSpec = 6;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
+/* Begin PBXFileReference section */
+		035A6D8814572B9D00F984A0 /* node-exe */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = "node-exe"; sourceTree = BUILT_PRODUCTS_DIR; };
+		035A6D9514572CC400F984A0 /* libhttp_parser.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libhttp_parser.a; path = "../../../../../../Library/Developer/Xcode/DerivedData/node-alzbllvwsutatqghxtfolczxqcqm/Build/Products/Default/libhttp_parser.a"; sourceTree = "<group>"; };
+		035A6D9714572CC900F984A0 /* libnode-static.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = "libnode-static.a"; path = "../../../../../../Library/Developer/Xcode/DerivedData/node-alzbllvwsutatqghxtfolczxqcqm/Build/Products/Debug/libnode-static.a"; sourceTree = "<group>"; };
+		035A6D9914572CCF00F984A0 /* libuv.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libuv.a; path = "../../../../../../Library/Developer/Xcode/DerivedData/node-alzbllvwsutatqghxtfolczxqcqm/Build/Products/Default/libuv.a"; sourceTree = "<group>"; };
+		035A6D9B14572CD300F984A0 /* libv8_nosnapshot.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libv8_nosnapshot.a; path = "../../../../../../Library/Developer/Xcode/DerivedData/node-alzbllvwsutatqghxtfolczxqcqm/Build/Products/Debug/libv8_nosnapshot.a"; sourceTree = "<group>"; };
+		035A6D9D14572E4E00F984A0 /* Carbon.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Carbon.framework; path = System/Library/Frameworks/Carbon.framework; sourceTree = SDKROOT; };
+		035A6D9F14572E6800F984A0 /* libz.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libz.dylib; path = usr/lib/libz.dylib; sourceTree = SDKROOT; };
+		035A6DA114572E7200F984A0 /* libssl.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libssl.dylib; path = usr/lib/libssl.dylib; sourceTree = SDKROOT; };
+		035A6DA314572E8D00F984A0 /* libcrypto.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libcrypto.dylib; path = usr/lib/libcrypto.dylib; sourceTree = SDKROOT; };
+		03E649EF145EF880003A94B9 /* main.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = main.cpp; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		035A6D8514572B9D00F984A0 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				035A6DA414572E8D00F984A0 /* libcrypto.dylib in Frameworks */,
+				035A6DA214572E7200F984A0 /* libssl.dylib in Frameworks */,
+				035A6DA014572E6800F984A0 /* libz.dylib in Frameworks */,
+				035A6D9E14572E4E00F984A0 /* Carbon.framework in Frameworks */,
+				035A6D9C14572CD300F984A0 /* libv8_nosnapshot.a in Frameworks */,
+				035A6D9A14572CCF00F984A0 /* libuv.a in Frameworks */,
+				035A6D9814572CC900F984A0 /* libnode-static.a in Frameworks */,
+				035A6D9614572CC400F984A0 /* libhttp_parser.a in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		035A6D7D14572B9D00F984A0 = {
+			isa = PBXGroup;
+			children = (
+				035A6DA314572E8D00F984A0 /* libcrypto.dylib */,
+				035A6DA114572E7200F984A0 /* libssl.dylib */,
+				035A6D9F14572E6800F984A0 /* libz.dylib */,
+				035A6D9D14572E4E00F984A0 /* Carbon.framework */,
+				035A6D9B14572CD300F984A0 /* libv8_nosnapshot.a */,
+				035A6D9914572CCF00F984A0 /* libuv.a */,
+				035A6D9714572CC900F984A0 /* libnode-static.a */,
+				035A6D9514572CC400F984A0 /* libhttp_parser.a */,
+				035A6D8B14572B9D00F984A0 /* node-exe */,
+				035A6D8914572B9D00F984A0 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		035A6D8914572B9D00F984A0 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				035A6D8814572B9D00F984A0 /* node-exe */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		035A6D8B14572B9D00F984A0 /* node-exe */ = {
+			isa = PBXGroup;
+			children = (
+				03E649EF145EF880003A94B9 /* main.cpp */,
+			);
+			path = "node-exe";
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		035A6D8714572B9D00F984A0 /* node-exe */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 035A6D9214572B9D00F984A0 /* Build configuration list for PBXNativeTarget "node-exe" */;
+			buildPhases = (
+				035A6D8414572B9D00F984A0 /* Sources */,
+				035A6D8514572B9D00F984A0 /* Frameworks */,
+				035A6D8614572B9D00F984A0 /* CopyFiles */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = "node-exe";
+			productName = "node-exe";
+			productReference = 035A6D8814572B9D00F984A0 /* node-exe */;
+			productType = "com.apple.product-type.tool";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		035A6D7F14572B9D00F984A0 /* Project object */ = {
+			isa = PBXProject;
+			buildConfigurationList = 035A6D8214572B9D00F984A0 /* Build configuration list for PBXProject "node-exe" */;
+			compatibilityVersion = "Xcode 3.2";
+			developmentRegion = English;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+			);
+			mainGroup = 035A6D7D14572B9D00F984A0;
+			productRefGroup = 035A6D8914572B9D00F984A0 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				035A6D8714572B9D00F984A0 /* node-exe */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXSourcesBuildPhase section */
+		035A6D8414572B9D00F984A0 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				03E649F0145EF880003A94B9 /* main.cpp in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		035A6D9014572B9D00F984A0 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ARCHS = "$(ARCHS_STANDARD_64_BIT)";
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				GCC_C_LANGUAGE_STANDARD = gnu99;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_OBJC_EXCEPTIONS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				GCC_VERSION = com.apple.compilers.llvm.clang.1_0;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_MISSING_PROTOTYPES = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				HEADER_SEARCH_PATHS = (
+					../src,
+					../deps/uv/include,
+					../deps/v8/include,
+				);
+				MACH_O_TYPE = mh_execute;
+				MACOSX_DEPLOYMENT_TARGET = 10.7;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = macosx;
+			};
+			name = Debug;
+		};
+		035A6D9114572B9D00F984A0 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ARCHS = "$(ARCHS_STANDARD_64_BIT)";
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				GCC_C_LANGUAGE_STANDARD = gnu99;
+				GCC_ENABLE_OBJC_EXCEPTIONS = YES;
+				GCC_VERSION = com.apple.compilers.llvm.clang.1_0;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_MISSING_PROTOTYPES = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				HEADER_SEARCH_PATHS = (
+					../src,
+					../deps/uv/include,
+					../deps/v8/include,
+				);
+				MACH_O_TYPE = mh_execute;
+				MACOSX_DEPLOYMENT_TARGET = 10.7;
+				SDKROOT = macosx;
+			};
+			name = Release;
+		};
+		035A6D9314572B9D00F984A0 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				INSTALL_PATH = ./bin;
+				LIBRARY_SEARCH_PATHS = (
+					"$(inherited)",
+					"\"$(SRCROOT)/../../../../../../Library/Developer/Xcode/DerivedData/node-alzbllvwsutatqghxtfolczxqcqm/Build/Products/Default\"",
+					"\"$(SRCROOT)/../../../../../../Library/Developer/Xcode/DerivedData/node-alzbllvwsutatqghxtfolczxqcqm/Build/Products/Debug\"",
+				);
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Debug;
+		};
+		035A6D9414572B9D00F984A0 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				INSTALL_PATH = ./bin;
+				LIBRARY_SEARCH_PATHS = (
+					"$(inherited)",
+					"\"$(SRCROOT)/../../../../../../Library/Developer/Xcode/DerivedData/node-alzbllvwsutatqghxtfolczxqcqm/Build/Products/Default\"",
+					"\"$(SRCROOT)/../../../../../../Library/Developer/Xcode/DerivedData/node-alzbllvwsutatqghxtfolczxqcqm/Build/Products/Debug\"",
+				);
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		035A6D8214572B9D00F984A0 /* Build configuration list for PBXProject "node-exe" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				035A6D9014572B9D00F984A0 /* Debug */,
+				035A6D9114572B9D00F984A0 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		035A6D9214572B9D00F984A0 /* Build configuration list for PBXNativeTarget "node-exe" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				035A6D9314572B9D00F984A0 /* Debug */,
+				035A6D9414572B9D00F984A0 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 035A6D7F14572B9D00F984A0 /* Project object */;
+}
