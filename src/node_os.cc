@@ -45,15 +45,16 @@ namespace node {
 using namespace v8;
 
 static Handle<Value> GetHostname(const Arguments& args) {
+  Isolate *isolate = node::getCurrentIsolate();
   HandleScope scope;
   char s[255];
   int r = gethostname(s, 255);
 
   if (r < 0) {
 #ifdef __POSIX__
-    return ThrowException(ErrnoException(errno, "gethostname"));
+    return ThrowException(isolate->ErrnoException(errno, "gethostname"));
 #else // __MINGW32__
-    return ThrowException(ErrnoException(WSAGetLastError(), "gethostname"));
+    return ThrowException(isolate->ErrnoException(WSAGetLastError(), "gethostname"));
 #endif // __MINGW32__
   }
 

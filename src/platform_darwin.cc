@@ -165,7 +165,7 @@ v8::Handle<v8::Value> Platform::GetInterfaceAddresses() {
   Local<Array> ifarr;
 
   if (getifaddrs(&addrs) != 0) {
-    return ThrowException(ErrnoException(errno, "getifaddrs"));
+    return ThrowException(node::getCurrentIsolate()->ErrnoException(errno, "getifaddrs"));
   }
 
   ret = Object::New();

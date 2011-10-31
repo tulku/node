@@ -20,7 +20,6 @@
 // USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 #include <node.h>
-
 #include <uv.h>
 
 #include <v8-debug.h>
@@ -39,7 +38,6 @@
 #else
 #define strcasecmp _stricmp
 #endif
-#include <limits.h> /* PATH_MAX */
 #include <assert.h>
 #if !defined(_MSC_VER)
 #include <unistd.h> /* setuid, getuid */
@@ -84,6 +82,7 @@ typedef int mode_t;
 #if HAVE_OPENSSL
 # include <node_crypto.h>
 #endif
+
 #include <node_script.h>
 #include <v8_typed_array.h>
 
@@ -97,88 +96,36 @@ extern char **environ;
 # endif
 
 namespace node {
+    
+static Isolate defaultIsolate;
+    
+Isolate *getCurrentIsolate() {return &defaultIsolate;}
 
-static Persistent<Object> process;
-
-static Persistent<String> errno_symbol;
-static Persistent<String> syscall_symbol;
-static Persistent<String> errpath_symbol;
-static Persistent<String> code_symbol;
-
-static Persistent<String> rss_symbol;
-static Persistent<String> heap_total_symbol;
-static Persistent<String> heap_used_symbol;
-
-static Persistent<String> listeners_symbol;
-static Persistent<String> uncaught_exception_symbol;
-static Persistent<String> emit_symbol;
-
-
-static char *eval_string = NULL;
-static int option_end_index = 0;
-static bool use_debug_agent = false;
-static bool debug_wait_connect = false;
-static int debug_port=5858;
-static int max_stack_size = 0;
-
-static uv_check_t check_tick_watcher;
-static uv_prepare_t prepare_tick_watcher;
-static uv_idle_t tick_spinner;
-static bool need_tick_cb;
-static Persistent<String> tick_callback_sym;
-
-
-#ifdef OPENSSL_NPN_NEGOTIATED
-static bool use_npn = true;
-#else
-static bool use_npn = false;
-#endif
-
-#ifdef SSL_CTRL_SET_TLSEXT_SERVERNAME_CB
-static bool use_sni = true;
-#else
-static bool use_sni = false;
-#endif
-
-// Buffer for getpwnam_r(), getgrpam_r() and other misc callers; keep this
-// scoped at file-level rather than method-level to avoid excess stack usage.
-static char getbuf[PATH_MAX + 1];
-
-// We need to notify V8 when we're idle so that it can run the garbage
-// collector. The interface to this is V8::IdleNotification(). It returns
-// true if the heap hasn't be fully compacted, and needs to be run again.
-// Returning false means that it doesn't have anymore work to do.
-//
-// A rather convoluted algorithm has been devised to determine when Node is
-// idle. You'll have to figure it out for yourself.
-static uv_check_t gc_check;
-static uv_idle_t gc_idle;
-static uv_timer_t gc_timer;
 bool need_gc;
-
 
 #define FAST_TICK 700.
 #define GC_WAIT_TIME 5000.
 #define RPM_SAMPLES 100
 #define TICK_TIME(n) tick_times[(tick_time_head - (n)) % RPM_SAMPLES]
 static int64_t tick_times[RPM_SAMPLES];
-static int tick_time_head;
 
-static void CheckStatus(uv_timer_t* watcher, int status);
-
-static void StartGCTimer () {
+void Isolate::StartGCTimer () {
   if (!uv_is_active((uv_handle_t*) &gc_timer)) {
-    uv_timer_start(&node::gc_timer, node::CheckStatus, 5000, 5000);
+    uv_timer_start(&gc_timer, CheckStatus, 5000, 5000);
   }
 }
 
-static void StopGCTimer () {
+void Isolate::StopGCTimer () {
   if (uv_is_active((uv_handle_t*) &gc_timer)) {
     uv_timer_stop(&gc_timer);
   }
 }
 
-static void Idle(uv_idle_t* watcher, int status) {
+void Isolate::Idle(uv_idle_t* watcher, int status) {
+    ((Isolate *)watcher->data)->__Idle(watcher, status);
+}
+
+void Isolate::__Idle(uv_idle_t* watcher, int status) {
   assert((uv_idle_t*) watcher == &gc_idle);
 
   if (V8::IdleNotification()) {
@@ -189,7 +136,11 @@ static void Idle(uv_idle_t* watcher, int status) {
 
 
 // Called directly after every call to select() (or epoll, or whatever)
-static void Check(uv_check_t* watcher, int status) {
+void Isolate::Check(uv_check_t* watcher, int status) {
+  ((Isolate *)watcher->data)->__Check(watcher, status);
+}
+    
+void Isolate::__Check(uv_check_t* watcher, int status) {
   assert(watcher == &gc_check);
 
   tick_times[tick_time_head] = uv_now(uv_default_loop());
@@ -211,11 +162,10 @@ static void Check(uv_check_t* watcher, int status) {
   // Otherwise start the gc!
 
   //fprintf(stderr, "start idle 2\n");
-  uv_idle_start(&node::gc_idle, node::Idle);
+  uv_idle_start(&gc_idle, Idle);
 }
 
-
-static void Tick(void) {
+void Isolate::Tick(void) {
   // Avoid entering a V8 scope.
   if (!need_tick_cb) return;
 
@@ -246,38 +196,48 @@ static void Tick(void) {
   }
 }
 
+void Isolate::Spin(uv_idle_t* handle, int status) {
+  ((Isolate *)handle->data)->__Spin(handle, status);
+}
 
-static void Spin(uv_idle_t* handle, int status) {
+void Isolate::__Spin(uv_idle_t* handle, int status) {
   assert((uv_idle_t*) handle == &tick_spinner);
   assert(status == 0);
   Tick();
 }
 
 
-static Handle<Value> NeedTickCallback(const Arguments& args) {
+Handle<Value> Isolate::NeedTickCallback(const Arguments& args) {
+  Isolate *isolate = getCurrentIsolate();
   HandleScope scope;
-  need_tick_cb = true;
+  isolate->need_tick_cb = true;
   // TODO: this tick_spinner shouldn't be necessary. An ev_prepare should be
   // sufficent, the problem is only in the case of the very last "tick" -
   // there is nothing left to do in the event loop and libev will exit. The
   // ev_prepare callback isn't called before exiting. Thus we start this
   // tick_spinner to keep the event loop alive long enough to handle it.
-  if (!uv_is_active((uv_handle_t*) &tick_spinner)) {
-    uv_idle_start(&tick_spinner, Spin);
+  if (!uv_is_active((uv_handle_t*) &isolate->tick_spinner)) {
+    uv_idle_start(&isolate->tick_spinner, Spin);
     uv_ref(uv_default_loop());
   }
   return Undefined();
 }
 
+void Isolate::PrepareTick(uv_prepare_t* handle, int status) {
+  ((Isolate *)handle->data)->__PrepareTick(handle, status);
+}
 
-static void PrepareTick(uv_prepare_t* handle, int status) {
+void Isolate::__PrepareTick(uv_prepare_t* handle, int status) {
   assert(handle == &prepare_tick_watcher);
   assert(status == 0);
   Tick();
 }
 
+void Isolate::CheckTick(uv_check_t* handle, int status) {
+  ((Isolate *)handle->data)->__CheckTick(handle, status);
+}
 
-static void CheckTick(uv_check_t* handle, int status) {
+void Isolate::__CheckTick(uv_check_t* handle, int status) {
   assert(handle == &check_tick_watcher);
   assert(status == 0);
   Tick();
@@ -986,7 +946,7 @@ const char *signo_string(int signo) {
 }
 
 
-Local<Value> ErrnoException(int errorno,
+Local<Value> Isolate::ErrnoException(int errorno,
                             const char *syscall,
                             const char *msg,
                             const char *path) {
@@ -1079,8 +1039,11 @@ void MakeCallback(Handle<Object> object,
   }
 }
 
-
 void SetErrno(uv_err_t err) {
+    getCurrentIsolate()->__SetErrno(err);
+}
+
+void Isolate::__SetErrno(uv_err_t err) {
   HandleScope scope;
 
   if (errno_symbol.IsEmpty()) {
@@ -1339,7 +1302,7 @@ Local<Value> ExecuteString(Handle<String> source, Handle<Value> filename) {
 }
 
 
-static Handle<Value> Chdir(const Arguments& args) {
+Handle<Value> Isolate::Chdir(const Arguments& args) {
   HandleScope scope;
 
   if (args.Length() != 1 || !args[0]->IsString()) {
@@ -1357,22 +1320,23 @@ static Handle<Value> Chdir(const Arguments& args) {
   return Undefined();
 }
 
-static Handle<Value> Cwd(const Arguments& args) {
+Handle<Value> Isolate::Cwd(const Arguments& args) {
+  Isolate *isolate = getCurrentIsolate();
   HandleScope scope;
   assert(args.Length() == 0);
 
-  char *r = getcwd(getbuf, ARRAY_SIZE(getbuf) - 1);
+  char *r = getcwd(isolate->getbuf, ARRAY_SIZE(isolate->getbuf) - 1);
   if (r == NULL) {
     return ThrowException(Exception::Error(String::New(strerror(errno))));
   }
 
-  getbuf[ARRAY_SIZE(getbuf) - 1] = '\0';
+  isolate->getbuf[ARRAY_SIZE(isolate->getbuf) - 1] = '\0';
   Local<String> cwd = String::New(r);
 
   return scope.Close(cwd);
 }
 
-static Handle<Value> Umask(const Arguments& args) {
+Handle<Value> Isolate::Umask(const Arguments& args) {
   HandleScope scope;
   unsigned int old;
 
@@ -1412,7 +1376,7 @@ static Handle<Value> Umask(const Arguments& args) {
 
 #ifdef __POSIX__
 
-static Handle<Value> GetUid(const Arguments& args) {
+Handle<Value> Isolate::GetUid(const Arguments& args) {
   HandleScope scope;
   assert(args.Length() == 0);
   int uid = getuid();
@@ -1420,7 +1384,7 @@ static Handle<Value> GetUid(const Arguments& args) {
 }
 
 
-static Handle<Value> GetGid(const Arguments& args) {
+Handle<Value> Isolate::GetGid(const Arguments& args) {
   HandleScope scope;
   assert(args.Length() == 0);
   int gid = getgid();
@@ -1428,7 +1392,8 @@ static Handle<Value> GetGid(const Arguments& args) {
 }
 
 
-static Handle<Value> SetGid(const Arguments& args) {
+Handle<Value> Isolate::SetGid(const Arguments& args) {
+  Isolate *isolate = getCurrentIsolate();
   HandleScope scope;
 
   if (args.Length() < 1) {
@@ -1445,13 +1410,13 @@ static Handle<Value> SetGid(const Arguments& args) {
     struct group grp, *grpp = NULL;
     int err;
 
-    if ((err = getgrnam_r(*grpnam, &grp, getbuf, ARRAY_SIZE(getbuf), &grpp)) ||
+    if ((err = getgrnam_r(*grpnam, &grp, isolate->getbuf, ARRAY_SIZE(isolate->getbuf), &grpp)) ||
         grpp == NULL) {
       if (errno == 0)
         return ThrowException(Exception::Error(
           String::New("setgid group id does not exist")));
       else
-        return ThrowException(ErrnoException(errno, "getgrnam_r"));
+        return ThrowException(isolate->ErrnoException(errno, "getgrnam_r"));
     }
 
     gid = grpp->gr_gid;
@@ -1462,13 +1427,14 @@ static Handle<Value> SetGid(const Arguments& args) {
 
   int result;
   if ((result = setgid(gid)) != 0) {
-    return ThrowException(ErrnoException(errno, "setgid"));
+    return ThrowException(isolate->ErrnoException(errno, "setgid"));
   }
   return Undefined();
 }
 
 
-static Handle<Value> SetUid(const Arguments& args) {
+Handle<Value> Isolate::SetUid(const Arguments& args) {
+    Isolate *isolate = getCurrentIsolate();
   HandleScope scope;
 
   if (args.Length() < 1) {
@@ -1485,13 +1451,13 @@ static Handle<Value> SetUid(const Arguments& args) {
     struct passwd pwd, *pwdp = NULL;
     int err;
 
-    if ((err = getpwnam_r(*pwnam, &pwd, getbuf, ARRAY_SIZE(getbuf), &pwdp)) ||
+    if ((err = getpwnam_r(*pwnam, &pwd, isolate->getbuf, ARRAY_SIZE(isolate->getbuf), &pwdp)) ||
         pwdp == NULL) {
       if (errno == 0)
         return ThrowException(Exception::Error(
           String::New("setuid user id does not exist")));
       else
-        return ThrowException(ErrnoException(errno, "getpwnam_r"));
+        return ThrowException(isolate->ErrnoException(errno, "getpwnam_r"));
     }
 
     uid = pwdp->pw_uid;
@@ -1502,7 +1468,7 @@ static Handle<Value> SetUid(const Arguments& args) {
 
   int result;
   if ((result = setuid(uid)) != 0) {
-    return ThrowException(ErrnoException(errno, "setuid"));
+    return ThrowException(isolate->ErrnoException(errno, "setuid"));
   }
   return Undefined();
 }
@@ -1511,14 +1477,17 @@ static Handle<Value> SetUid(const Arguments& args) {
 #endif // __POSIX__
 
 
-v8::Handle<v8::Value> Exit(const v8::Arguments& args) {
+v8::Handle<v8::Value> Isolate::Exit(const v8::Arguments& args) {
   HandleScope scope;
   exit(args[0]->IntegerValue());
   return Undefined();
 }
 
+void Isolate::CheckStatus(uv_timer_t* watcher, int status) {
+    ((Isolate *)watcher->data)->__CheckStatus(watcher, status);
+}
 
-static void CheckStatus(uv_timer_t* watcher, int status) {
+void Isolate::__CheckStatus(uv_timer_t* watcher, int status) {
   assert(watcher == &gc_timer);
 
   // check memory
@@ -1527,7 +1496,7 @@ static void CheckStatus(uv_timer_t* watcher, int status) {
     V8::GetHeapStatistics(&stats);
     if (stats.total_heap_size() > 1024 * 1024 * 128) {
       // larger than 128 megs, just start the idle watcher
-      uv_idle_start(&node::gc_idle, node::Idle);
+      uv_idle_start(&gc_idle, Idle);
       return;
     }
   }
@@ -1538,7 +1507,7 @@ static void CheckStatus(uv_timer_t* watcher, int status) {
 
   if (d  >= GC_WAIT_TIME - 1.) {
     //fprintf(stderr, "start idle\n");
-    uv_idle_start(&node::gc_idle, node::Idle);
+    uv_idle_start(&gc_idle, Idle);
   }
 }
 
@@ -1587,7 +1556,8 @@ v8::Handle<v8::Value> UVCounters(const v8::Arguments& args) {
 }
 
 
-v8::Handle<v8::Value> MemoryUsage(const v8::Arguments& args) {
+v8::Handle<v8::Value> Isolate::MemoryUsage(const v8::Arguments& args) {
+  Isolate *isolate = getCurrentIsolate();
   HandleScope scope;
   assert(args.Length() == 0);
 
@@ -1601,20 +1571,20 @@ v8::Handle<v8::Value> MemoryUsage(const v8::Arguments& args) {
 
   Local<Object> info = Object::New();
 
-  if (rss_symbol.IsEmpty()) {
-    rss_symbol = NODE_PSYMBOL("rss");
-    heap_total_symbol = NODE_PSYMBOL("heapTotal");
-    heap_used_symbol = NODE_PSYMBOL("heapUsed");
+  if (isolate->rss_symbol.IsEmpty()) {
+    isolate->rss_symbol = NODE_PSYMBOL("rss");
+    isolate->heap_total_symbol = NODE_PSYMBOL("heapTotal");
+    isolate->heap_used_symbol = NODE_PSYMBOL("heapUsed");
   }
 
-  info->Set(rss_symbol, Integer::NewFromUnsigned(rss));
+  info->Set(isolate->rss_symbol, Integer::NewFromUnsigned(rss));
 
   // V8 memory usage
   HeapStatistics v8_heap_stats;
   V8::GetHeapStatistics(&v8_heap_stats);
-  info->Set(heap_total_symbol,
+  info->Set(isolate->heap_total_symbol,
             Integer::NewFromUnsigned(v8_heap_stats.total_heap_size()));
-  info->Set(heap_used_symbol,
+  info->Set(isolate->heap_used_symbol,
             Integer::NewFromUnsigned(v8_heap_stats.used_heap_size()));
 
   return scope.Close(info);
@@ -1623,7 +1593,8 @@ v8::Handle<v8::Value> MemoryUsage(const v8::Arguments& args) {
 
 #ifdef __POSIX__
 
-Handle<Value> Kill(const Arguments& args) {
+Handle<Value> Isolate::Kill(const Arguments& args) {
+  Isolate *isolate = getCurrentIsolate();
   HandleScope scope;
 
   if (args.Length() != 2) {
@@ -1634,7 +1605,7 @@ Handle<Value> Kill(const Arguments& args) {
   int sig = args[1]->Int32Value();
   int r = kill(pid, sig);
 
-  if (r != 0) return ThrowException(ErrnoException(errno, "kill"));
+  if (r != 0) return ThrowException(isolate->ErrnoException(errno, "kill"));
 
   return Undefined();
 }
@@ -1765,7 +1736,7 @@ Handle<Value> Compile(const Arguments& args) {
   return scope.Close(result);
 }
 
-static void OnFatalError(const char* location, const char* message) {
+void OnFatalError(const char* location, const char* message) {
   if (location) {
     fprintf(stderr, "FATAL ERROR: %s %s\n", location, message);
   } else {
@@ -1774,9 +1745,11 @@ static void OnFatalError(const char* location, const char* message) {
   exit(1);
 }
 
-static int uncaught_exception_counter = 0;
-
 void FatalException(TryCatch &try_catch) {
+    getCurrentIsolate()->__FatalException(try_catch);
+}
+
+void Isolate::__FatalException(TryCatch &try_catch) {
   HandleScope scope;
 
   // Check if uncaught_exception_counter indicates a recursion
@@ -1851,54 +1824,52 @@ static void DebugBreakMessageHandler(const Debug::Message& message) {
 }
 
 
-Persistent<Object> binding_cache;
-Persistent<Array> module_load_list;
-
-static Handle<Value> Binding(const Arguments& args) {
+Handle<Value> Isolate::Binding(const Arguments& args) {
+  Isolate *isolate = getCurrentIsolate();
   HandleScope scope;
 
   Local<String> module = args[0]->ToString();
   String::Utf8Value module_v(module);
   node_module_struct* modp;
 
-  if (binding_cache.IsEmpty()) {
-    binding_cache = Persistent<Object>::New(Object::New());
+  if (isolate->binding_cache.IsEmpty()) {
+    isolate->binding_cache = Persistent<Object>::New(Object::New());
   }
 
   Local<Object> exports;
 
-  if (binding_cache->Has(module)) {
-    exports = binding_cache->Get(module)->ToObject();
+  if (isolate->binding_cache->Has(module)) {
+    exports = isolate->binding_cache->Get(module)->ToObject();
     return scope.Close(exports);
   }
 
   // Append a string to process.moduleLoadList
   char buf[1024];
   snprintf(buf, 1024, "Binding %s", *module_v);
-  uint32_t l = module_load_list->Length();
-  module_load_list->Set(l, String::New(buf));
+  uint32_t l = isolate->module_load_list->Length();
+  isolate->module_load_list->Set(l, String::New(buf));
 
   if ((modp = get_builtin_module(*module_v)) != NULL) {
     exports = Object::New();
     modp->register_func(exports);
-    binding_cache->Set(module, exports);
+    isolate->binding_cache->Set(module, exports);
 
   } else if (!strcmp(*module_v, "constants")) {
     exports = Object::New();
     DefineConstants(exports);
-    binding_cache->Set(module, exports);
+    isolate->binding_cache->Set(module, exports);
 
 #ifdef __POSIX__
   } else if (!strcmp(*module_v, "io_watcher")) {
     exports = Object::New();
     IOWatcher::Initialize(exports);
-    binding_cache->Set(module, exports);
+    isolate->binding_cache->Set(module, exports);
 #endif
 
   } else if (!strcmp(*module_v, "natives")) {
     exports = Object::New();
     DefineJavaScript(exports);
-    binding_cache->Set(module, exports);
+    isolate->binding_cache->Set(module, exports);
 
   } else {
 
@@ -2019,7 +1990,7 @@ static Handle<Array> EnvEnumerator(const AccessorInfo& info) {
 }
 
 
-static Handle<Object> GetFeatures() {
+Handle<Object> Isolate::GetFeatures() {
   HandleScope scope;
 
   Local<Object> obj = Object::New();
@@ -2042,7 +2013,7 @@ static Handle<Object> GetFeatures() {
 }
 
 
-Handle<Object> SetupProcessObject(int argc, char *argv[]) {
+Handle<Object> Isolate::SetupProcessObject(int argc, char *argv[]) {
   HandleScope scope;
 
   int i, j;
@@ -2103,9 +2074,9 @@ Handle<Object> SetupProcessObject(int argc, char *argv[]) {
   process->Set(String::NewSymbol("platform"), String::New(PLATFORM));
 
   // process.argv
-  Local<Array> arguments = Array::New(argc - option_end_index + 1);
+  Local<Array> arguments = Array::New(argc - options.option_end_index + 1);
   arguments->Set(Integer::New(0), String::New(argv[0]));
-  for (j = 1, i = option_end_index; i < argc; j++, i++) {
+  for (j = 1, i = options.option_end_index; i < argc; j++, i++) {
     Local<String> arg = String::New(argv[i]);
     arguments->Set(Integer::New(j), arg);
   }
@@ -2127,8 +2098,8 @@ Handle<Object> SetupProcessObject(int argc, char *argv[]) {
   process->Set(String::NewSymbol("features"), GetFeatures());
 
   // -e, --eval
-  if (eval_string) {
-    process->Set(String::NewSymbol("_eval"), String::New(eval_string));
+  if (options.eval_string) {
+    process->Set(String::NewSymbol("_eval"), String::New(options.eval_string));
   }
 
   size_t size = 2*PATH_MAX;
@@ -2183,7 +2154,7 @@ static void SignalExit(int signal) {
 }
 
 
-void Load(Handle<Object> process) {
+void Isolate::Load(Handle<Object> process) {
   // Compile, execute the src/node.js file. (Which was included as static C
   // string in node_natives.h. 'natve_node' is the string containing that
   // source code.)
@@ -2229,24 +2200,24 @@ void Load(Handle<Object> process) {
 
 static void PrintHelp();
 
-static void ParseDebugOpt(const char* arg) {
+void ParseDebugOpt(const char* arg, NodeOptions *options) {
   const char *p = 0;
 
-  use_debug_agent = true;
+  options->use_debug_agent = true;
   if (!strcmp (arg, "--debug-brk")) {
-    debug_wait_connect = true;
+    options->debug_wait_connect = true;
     return;
   } else if (!strcmp(arg, "--debug")) {
     return;
   } else if (strstr(arg, "--debug-brk=") == arg) {
-    debug_wait_connect = true;
+    options->debug_wait_connect = true;
     p = 1 + strchr(arg, '=');
-    debug_port = atoi(p);
+    options->debug_port = atoi(p);
   } else if (strstr(arg, "--debug=") == arg) {
     p = 1 + strchr(arg, '=');
-    debug_port = atoi(p);
+    options->debug_port = atoi(p);
   }
-  if (p && debug_port > 1024 && debug_port <  65536)
+  if (p && options->debug_port > 1024 && options->debug_port <  65536)
       return;
 
   fprintf(stderr, "Bad debug option.\n");
@@ -2277,16 +2248,27 @@ static void PrintHelp() {
          "\n"
          "Documentation can be found at http://nodejs.org/\n");
 }
+    
+NodeOptions::NodeOptions() {
+    eval_string = NULL;
+    option_end_index = 0;
+    use_debug_agent = false;
+    debug_wait_connect = false;
+    debug_port = 5858;
+    max_stack_size = 0;
+}
 
+NodeOptions::~NodeOptions() {}
+    
 // Parse node command line arguments.
-static void ParseArgs(int argc, char **argv) {
+static void ParseArgs(int argc, char **argv, NodeOptions *options) {
   int i;
 
   // TODO use parse opts
   for (i = 1; i < argc; i++) {
     const char *arg = argv[i];
     if (strstr(arg, "--debug") == arg) {
-      ParseDebugOpt(arg);
+      ParseDebugOpt(arg, options);
       argv[i] = const_cast<char*>("");
     } else if (strcmp(arg, "--version") == 0 || strcmp(arg, "-v") == 0) {
       printf("%s\n", NODE_VERSION);
@@ -2302,7 +2284,7 @@ static void ParseArgs(int argc, char **argv) {
     } else if (strstr(arg, "--max-stack-size=") == arg) {
       const char *p = 0;
       p = 1 + strchr(arg, '=');
-      max_stack_size = atoi(p);
+      options->max_stack_size = atoi(p);
       argv[i] = const_cast<char*>("");
     } else if (strcmp(arg, "--help") == 0 || strcmp(arg, "-h") == 0) {
       PrintHelp();
@@ -2313,7 +2295,7 @@ static void ParseArgs(int argc, char **argv) {
         exit(1);
       }
       argv[i] = const_cast<char*>("");
-      eval_string = argv[++i];
+      options->eval_string = argv[++i];
     } else if (strcmp(arg, "--v8-options") == 0) {
       argv[i] = const_cast<char*>("--help");
     } else if (argv[i][0] != '-') {
@@ -2321,14 +2303,12 @@ static void ParseArgs(int argc, char **argv) {
     }
   }
 
-  option_end_index = i;
+  options->option_end_index = i;
 }
 
-static volatile bool debugger_running = false;
-
-static void EnableDebug(bool wait_connect) {
+void Isolate::EnableDebug(bool wait_connect) {
   // Start the debug thread and it's associated TCP server on port 5858.
-  bool r = Debug::EnableAgent("node " NODE_VERSION, debug_port);
+  bool r = Debug::EnableAgent("node " NODE_VERSION, options.debug_port);
 
   if (wait_connect) {
     // Set up an empty handler so v8 will not continue until a debugger
@@ -2342,35 +2322,37 @@ static void EnableDebug(bool wait_connect) {
   assert(r);
 
   // Print out some information.
-  fprintf(stderr, "debugger listening on port %d\n", debug_port);
+  fprintf(stderr, "debugger listening on port %d\n", options.debug_port);
 
   debugger_running = true;
 }
 
 
 #ifdef __POSIX__
-static void EnableDebugSignalHandler(int signal) {
+void Isolate::EnableDebugSignalHandler(int signal) {
   // Break once process will return execution to v8
   v8::Debug::DebugBreak();
 
-  if (!debugger_running) {
+  Isolate *isolate = getCurrentIsolate();
+  if (!isolate->debugger_running) {
     fprintf(stderr, "Hit SIGUSR1 - starting debugger agent.\n");
-    EnableDebug(false);
+    isolate->EnableDebug(false);
   }
 }
 #endif // __POSIX__
 
 #if defined(__MINGW32__) || defined(_MSC_VER)
-static bool EnableDebugSignalHandler(DWORD signal) {
+bool Isolate::EnableDebugSignalHandler(DWORD signal) {
   if (signal == CTRL_C_EVENT) exit(1);
   if (signal != CTRL_BREAK_EVENT) return false;
 
   // Break once process will return execution to v8
   v8::Debug::DebugBreak();
 
-  if (!debugger_running) {
+  Isolate *isolate = getCurrentIsolate();
+  if (!isolate->debugger_running) {
     fprintf(stderr, "Hit Ctrl+Break - starting debugger agent.\n");
-    EnableDebug(false);
+    isolate->EnableDebug(false);
     return true;
   } else {
     // Run default system action (terminate)
@@ -2383,7 +2365,7 @@ static bool EnableDebugSignalHandler(DWORD signal) {
 
 #ifdef __POSIX__
 
-static int RegisterSignalHandler(int signal, void (*handler)(int)) {
+int Isolate::RegisterSignalHandler(int signal, void (*handler)(int)) {
   struct sigaction sa;
 
   memset(&sa, 0, sizeof(sa));
@@ -2394,26 +2376,26 @@ static int RegisterSignalHandler(int signal, void (*handler)(int)) {
 #endif // __POSIX__
 
 
-char** Init(int argc, char *argv[]) {
+char** Isolate::Init(int argc, char *argv[]) {
   // Hack aroung with the argv pointer. Used for process.title = "blah".
   argv = node::Platform::SetupArgs(argc, argv);
 
   // Parse a few arguments which are specific to Node.
-  node::ParseArgs(argc, argv);
+  ParseArgs(argc, argv, &options);
   // Parse the rest of the args (up to the 'option_end_index' (where '--' was
   // in the command line))
-  int v8argc = node::option_end_index;
+  int v8argc = options.option_end_index;
   char **v8argv = argv;
 
-  if (node::debug_wait_connect) {
+  if (options.debug_wait_connect) {
     // v8argv is a copy of argv up to the script file argument +2 if --debug-brk
     // to expose the v8 debugger js object so that node.js can set
     // a breakpoint on the first line of the startup script
     v8argc += 2;
     v8argv = new char*[v8argc];
-    memcpy(v8argv, argv, sizeof(argv) * node::option_end_index);
-    v8argv[node::option_end_index] = const_cast<char*>("--expose_debug_as");
-    v8argv[node::option_end_index + 1] = const_cast<char*>("v8debug");
+    memcpy(v8argv, argv, sizeof(argv) * options.option_end_index);
+    v8argv[options.option_end_index] = const_cast<char*>("--expose_debug_as");
+    v8argv[options.option_end_index + 1] = const_cast<char*>("v8debug");
   }
 
   // For the normal stack which moves from high to low addresses when frames
@@ -2421,11 +2403,11 @@ char** Init(int argc, char *argv[]) {
   // the address of a stack variable (e.g. &stack_var) as an approximation
   // of the start of the stack (we're assuming that we haven't pushed a lot
   // of frames yet).
-  if (node::max_stack_size != 0) {
+  if (options.max_stack_size != 0) {
     uint32_t stack_var;
     ResourceConstraints constraints;
 
-    uint32_t *stack_limit = &stack_var - (node::max_stack_size / sizeof(uint32_t));
+    uint32_t *stack_limit = &stack_var - (options.max_stack_size / sizeof(uint32_t));
     constraints.set_stack_limit(stack_limit);
     SetResourceConstraints(&constraints); // Must be done before V8::Initialize
   }
@@ -2438,25 +2420,25 @@ char** Init(int argc, char *argv[]) {
   RegisterSignalHandler(SIGTERM, SignalExit);
 #endif // __POSIX__
 
-  uv_prepare_init(uv_default_loop(), &node::prepare_tick_watcher);
-  uv_prepare_start(&node::prepare_tick_watcher, PrepareTick);
+  uv_prepare_init(uv_default_loop(), &prepare_tick_watcher);
+  uv_prepare_start(&prepare_tick_watcher, PrepareTick);
   uv_unref(uv_default_loop());
 
-  uv_check_init(uv_default_loop(), &node::check_tick_watcher);
-  uv_check_start(&node::check_tick_watcher, node::CheckTick);
+  uv_check_init(uv_default_loop(), &check_tick_watcher);
+  uv_check_start(&check_tick_watcher,CheckTick);
   uv_unref(uv_default_loop());
 
-  uv_idle_init(uv_default_loop(), &node::tick_spinner);
+  uv_idle_init(uv_default_loop(), &tick_spinner);
   uv_unref(uv_default_loop());
 
-  uv_check_init(uv_default_loop(), &node::gc_check);
-  uv_check_start(&node::gc_check, node::Check);
+  uv_check_init(uv_default_loop(), &gc_check);
+  uv_check_start(&gc_check, Check);
   uv_unref(uv_default_loop());
 
-  uv_idle_init(uv_default_loop(), &node::gc_idle);
+  uv_idle_init(uv_default_loop(), &gc_idle);
   uv_unref(uv_default_loop());
 
-  uv_timer_init(uv_default_loop(), &node::gc_timer);
+  uv_timer_init(uv_default_loop(), &gc_timer);
   uv_unref(uv_default_loop());
 
   V8::SetFatalErrorHandler(node::OnFatalError);
@@ -2476,8 +2458,8 @@ char** Init(int argc, char *argv[]) {
 
 
   // If the --debug flag was specified then initialize the debug thread.
-  if (node::use_debug_agent) {
-    EnableDebug(debug_wait_connect);
+  if (options.use_debug_agent) {
+    EnableDebug(options.debug_wait_connect);
   } else {
 #ifdef __POSIX__
     RegisterSignalHandler(SIGUSR1, EnableDebugSignalHandler);
@@ -2491,7 +2473,7 @@ char** Init(int argc, char *argv[]) {
 }
 
 
-void EmitExit(v8::Handle<v8::Object> process) {
+void Isolate::EmitExit(v8::Handle<v8::Object> process) {
   // process.emit('exit')
   Local<Value> emit_v = process->Get(String::New("emit"));
   assert(emit_v->IsFunction());
@@ -2505,7 +2487,7 @@ void EmitExit(v8::Handle<v8::Object> process) {
 }
 
 
-int Start(int argc, char *argv[]) {
+int Isolate::Start(int argc, char *argv[]) {
   // This needs to run *before* V8::Initialize()
   argv = Init(argc, argv);
 
@@ -2540,6 +2522,34 @@ int Start(int argc, char *argv[]) {
 
   return 0;
 }
+    
+Isolate::Isolate() {
+    check_tick_watcher.data = this;
+    prepare_tick_watcher.data = this;
+    tick_spinner.data = this;
+    gc_check.data = this;
+    gc_idle.data = this;
+    gc_timer.data = this;
+    
+#ifdef OPENSSL_NPN_NEGOTIATED
+    use_npn = true;
+#else
+    use_npn = false;
+#endif
+    
+#ifdef SSL_CTRL_SET_TLSEXT_SERVERNAME_CB
+    use_sni = true;
+#else
+    use_sni = false;
+#endif
+    debugger_running = false;
+    uncaught_exception_counter = 0;
+}
 
+Isolate::~Isolate() {}
+
+int Start(int argc, char **argv) {
+  return getCurrentIsolate()->Start(argc, argv);
+}
 
 }  // namespace node

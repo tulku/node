@@ -45,6 +45,8 @@
 
 #include <node_object_wrap.h>
 
+#include <limits.h> /* PATH_MAX */
+
 #ifndef offset_of
 // g++ in strict mode complains loudly about the system offsetof() macro
 // because it uses NULL as the base address.
@@ -67,6 +69,135 @@
 #endif
 
 namespace node {
+
+class NodeOptions {
+public:
+    char *eval_string;
+    int option_end_index;
+    bool use_debug_agent;
+    bool debug_wait_connect;
+    int debug_port;
+    int max_stack_size;
+    NodeOptions();
+    ~NodeOptions();
+};
+    
+class Isolate {
+public:
+    int Start(int argc, char *argv[]);
+    int Stop(int signum);
+    static Isolate* New();
+    void Dispose();
+    v8::Local<v8::Value> ErrnoException(int errorno,
+        const char *syscall = NULL,
+        const char *msg = "",
+        const char *path = NULL);
+    void __FatalException(v8::TryCatch &try_catch);
+    void __SetErrno(uv_err_t err);
+
+    Isolate();
+    ~Isolate();
+    
+private:
+    void StartGCTimer ();
+    void StopGCTimer ();
+
+    static void Idle(uv_idle_t* watcher, int status);
+    static void Check(uv_check_t* watcher, int status);
+    static void Spin(uv_idle_t* handle, int status);
+    static void PrepareTick(uv_prepare_t* handle, int status);
+    static void CheckTick(uv_check_t* handle, int status);
+    static void CheckStatus(uv_timer_t* watcher, int status);
+
+    void __Idle(uv_idle_t* watcher, int status);
+    void __Check(uv_check_t* watcher, int status);
+    void __Spin(uv_idle_t* handle, int status);
+    void __PrepareTick(uv_prepare_t* handle, int status);
+    void __CheckTick(uv_check_t* handle, int status);
+    void __CheckStatus(uv_timer_t* watcher, int status);
+    void Tick(void);
+
+    static v8::Handle<v8::Value> NeedTickCallback(const v8::Arguments& args);
+    static v8::Handle<v8::Value> Chdir(const v8::Arguments& args);
+    static v8::Handle<v8::Value> Cwd(const v8::Arguments& args);
+    static v8::Handle<v8::Value> Umask(const v8::Arguments& args);
+#ifdef __POSIX__
+    static v8::Handle<v8::Value> GetUid(const v8::Arguments& args);
+    static v8::Handle<v8::Value> SetUid(const v8::Arguments& args);
+    static v8::Handle<v8::Value> GetGid(const v8::Arguments& args);
+    static v8::Handle<v8::Value> SetGid(const v8::Arguments& args);
+#endif // __POSIX__
+    static v8::Handle<v8::Value> Exit(const v8::Arguments& args);
+    static v8::Handle<v8::Value> MemoryUsage(const v8::Arguments& args);
+    static v8::Handle<v8::Value> Kill(const v8::Arguments& args);
+    static v8::Handle<v8::Value> Binding(const v8::Arguments& args);
+
+    v8::Handle<v8::Object> GetFeatures();
+
+    char** Init(int argc, char *argv[]);
+    v8::Handle<v8::Object> SetupProcessObject(int argc, char *argv[]);
+    void Load(v8::Handle<v8::Object> process);
+    void EmitExit(v8::Handle<v8::Object> process);
+    void EnableDebug(bool wait_connect);
+#ifdef __POSIX__
+    static void EnableDebugSignalHandler(int signal);
+    static int RegisterSignalHandler(int signal, void (*handler)(int));
+#endif // __POSIX__
+#if defined(__MINGW32__) || defined(_MSC_VER)
+    static bool EnableDebugSignalHandler(int signal);
+#endif // defined(__MINGW32__) || defined(_MSC_VER)
+
+    v8::Persistent<v8::Object> process;
+    
+    v8::Persistent<v8::String> errno_symbol;
+    v8::Persistent<v8::String> syscall_symbol;
+    v8::Persistent<v8::String> errpath_symbol;
+    v8::Persistent<v8::String> code_symbol;
+    
+    v8::Persistent<v8::String> rss_symbol;
+    v8::Persistent<v8::String> heap_total_symbol;
+    v8::Persistent<v8::String> heap_used_symbol;
+    
+    v8::Persistent<v8::String> listeners_symbol;
+    v8::Persistent<v8::String> uncaught_exception_symbol;
+    v8::Persistent<v8::String> emit_symbol;
+    
+    NodeOptions options;
+    volatile bool debugger_running;
+    int uncaught_exception_counter;    
+    
+    uv_check_t check_tick_watcher;
+    uv_prepare_t prepare_tick_watcher;
+    uv_idle_t tick_spinner;
+    bool need_tick_cb;
+    v8::Persistent<v8::String> tick_callback_sym;
+
+    bool use_npn;
+    bool use_sni;
+    
+    // Buffer for getpwnam_r(), getgrpam_r() and other misc callers; keep this
+    // scoped at file-level rather than method-level to avoid excess stack usage.
+    char getbuf[PATH_MAX + 1];
+    
+    // We need to notify V8 when we're idle so that it can run the garbage
+    // collector. The interface to this is V8::IdleNotification(). It returns
+    // true if the heap hasn't be fully compacted, and needs to be run again.
+    // Returning false means that it doesn't have anymore work to do.
+    //
+    // A rather convoluted algorithm has been devised to determine when Node is
+    // idle. You'll have to figure it out for yourself.
+    uv_check_t gc_check;
+    uv_idle_t gc_idle;
+    uv_timer_t gc_timer;
+    
+    int tick_time_head;
+    
+    v8::Persistent<v8::Object> binding_cache;
+    v8::Persistent<v8::Array> module_load_list;
+
+};
+
+Isolate *getCurrentIsolate();
 
 int Start(int argc, char *argv[]);
 
@@ -162,11 +293,6 @@ static inline void cb_destroy(v8::Persistent<v8::Function> * cb) {
   delete cb;
 }
 
-v8::Local<v8::Value> ErrnoException(int errorno,
-                                    const char *syscall = NULL,
-                                    const char *msg = "",
-                                    const char *path = NULL);
-
 const char *signo_string(int errorno);
 
 struct node_module_struct {
@@ -204,6 +330,8 @@ node_module_struct* get_builtin_module(const char *name);
   extern node::node_module_struct modname ## _module;
 
 void SetErrno(uv_err_t err);
+void SetLastErrno();
+void FatalException(v8::TryCatch &try_catch);
 void MakeCallback(v8::Handle<v8::Object> object,
                   const char* method,
                   int argc,
