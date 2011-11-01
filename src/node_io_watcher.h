@@ -22,6 +22,7 @@
 #ifndef NODE_IO_H_
 #define NODE_IO_H_
 
+#include <node.h>
 #include <node_object_wrap.h>
 #include <uv-private/ev.h>
 
@@ -37,10 +38,11 @@ class IOWatcher : ObjectWrap {
   IOWatcher() : ObjectWrap() {
     ev_init(&watcher_, IOWatcher::Callback);
     watcher_.data = this;
+    loop = Isolate::GetCurrentLoop()->ev;
   }
 
   ~IOWatcher() {
-    ev_io_stop(EV_DEFAULT_UC_ &watcher_);
+    ev_io_stop(loop, &watcher_);
     assert(!ev_is_active(&watcher_));
     assert(!ev_is_pending(&watcher_));
   }
@@ -57,6 +59,7 @@ class IOWatcher : ObjectWrap {
   void Stop();
 
   ev_io watcher_;
+  struct ev_loop *loop;
 };
 
 }  // namespace node

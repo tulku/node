@@ -99,7 +99,8 @@ namespace node {
     
 static Isolate defaultIsolate;
     
-Isolate *getCurrentIsolate() {return &defaultIsolate;}
+Isolate *Isolate::GetCurrent() {return &defaultIsolate;}
+uv_loop_t *Isolate::GetCurrentLoop() {return GetCurrent()->Loop();}
 
 bool need_gc;
 
@@ -143,7 +144,7 @@ void Isolate::Check(uv_check_t* watcher, int status) {
 void Isolate::__Check(uv_check_t* watcher, int status) {
   assert(watcher == &gc_check);
 
-  tick_times[tick_time_head] = uv_now(uv_default_loop());
+  tick_times[tick_time_head] = uv_now(Loop());
   tick_time_head = (tick_time_head + 1) % RPM_SAMPLES;
 
   StartGCTimer();
@@ -172,7 +173,7 @@ void Isolate::Tick(void) {
   need_tick_cb = false;
   if (uv_is_active((uv_handle_t*) &tick_spinner)) {
     uv_idle_stop(&tick_spinner);
-    uv_unref(uv_default_loop());
+    uv_unref(Loop());
   }
 
   HandleScope scope;
@@ -208,7 +209,7 @@ void Isolate::__Spin(uv_idle_t* handle, int status) {
 
 
 Handle<Value> Isolate::NeedTickCallback(const Arguments& args) {
-  Isolate *isolate = getCurrentIsolate();
+  Isolate *isolate = Isolate::GetCurrent();
   HandleScope scope;
   isolate->need_tick_cb = true;
   // TODO: this tick_spinner shouldn't be necessary. An ev_prepare should be
@@ -218,7 +219,7 @@ Handle<Value> Isolate::NeedTickCallback(const Arguments& args) {
   // tick_spinner to keep the event loop alive long enough to handle it.
   if (!uv_is_active((uv_handle_t*) &isolate->tick_spinner)) {
     uv_idle_start(&isolate->tick_spinner, Spin);
-    uv_ref(uv_default_loop());
+    uv_ref(isolate->Loop());
   }
   return Undefined();
 }
@@ -1039,8 +1040,13 @@ void MakeCallback(Handle<Object> object,
   }
 }
 
+void SetLastErrno() {
+    Isolate *isolate = Isolate::GetCurrent();
+    isolate->__SetErrno(uv_last_error(isolate->Loop()));
+}
+
 void SetErrno(uv_err_t err) {
-    getCurrentIsolate()->__SetErrno(err);
+    Isolate::GetCurrent()->__SetErrno(err);
 }
 
 void Isolate::__SetErrno(uv_err_t err) {
@@ -1321,7 +1327,7 @@ Handle<Value> Isolate::Chdir(const Arguments& args) {
 }
 
 Handle<Value> Isolate::Cwd(const Arguments& args) {
-  Isolate *isolate = getCurrentIsolate();
+  Isolate *isolate = Isolate::GetCurrent();
   HandleScope scope;
   assert(args.Length() == 0);
 
@@ -1393,7 +1399,7 @@ Handle<Value> Isolate::GetGid(const Arguments& args) {
 
 
 Handle<Value> Isolate::SetGid(const Arguments& args) {
-  Isolate *isolate = getCurrentIsolate();
+  Isolate *isolate = Isolate::GetCurrent();
   HandleScope scope;
 
   if (args.Length() < 1) {
@@ -1434,7 +1440,7 @@ Handle<Value> Isolate::SetGid(const Arguments& args) {
 
 
 Handle<Value> Isolate::SetUid(const Arguments& args) {
-    Isolate *isolate = getCurrentIsolate();
+    Isolate *isolate = Isolate::GetCurrent();
   HandleScope scope;
 
   if (args.Length() < 1) {
@@ -1501,7 +1507,7 @@ void Isolate::__CheckStatus(uv_timer_t* watcher, int status) {
     }
   }
 
-  double d = uv_now(uv_default_loop()) - TICK_TIME(3);
+  double d = uv_now(Loop()) - TICK_TIME(3);
 
   //printfb("timer d = %f\n", d);
 
@@ -1526,9 +1532,10 @@ static Handle<Value> Uptime(const Arguments& args) {
 
 
 v8::Handle<v8::Value> UVCounters(const v8::Arguments& args) {
+  Isolate *isolate = Isolate::GetCurrent();
   HandleScope scope;
 
-  uv_counters_t* c = &uv_default_loop()->counters;
+  uv_counters_t* c = &isolate->Loop()->counters;
 
   Local<Object> obj = Object::New();
 
@@ -1557,7 +1564,7 @@ v8::Handle<v8::Value> UVCounters(const v8::Arguments& args) {
 
 
 v8::Handle<v8::Value> Isolate::MemoryUsage(const v8::Arguments& args) {
-  Isolate *isolate = getCurrentIsolate();
+  Isolate *isolate = Isolate::GetCurrent();
   HandleScope scope;
   assert(args.Length() == 0);
 
@@ -1594,7 +1601,7 @@ v8::Handle<v8::Value> Isolate::MemoryUsage(const v8::Arguments& args) {
 #ifdef __POSIX__
 
 Handle<Value> Isolate::Kill(const Arguments& args) {
-  Isolate *isolate = getCurrentIsolate();
+  Isolate *isolate = Isolate::GetCurrent();
   HandleScope scope;
 
   if (args.Length() != 2) {
@@ -1746,7 +1753,7 @@ void OnFatalError(const char* location, const char* message) {
 }
 
 void FatalException(TryCatch &try_catch) {
-    getCurrentIsolate()->__FatalException(try_catch);
+    Isolate::GetCurrent()->__FatalException(try_catch);
 }
 
 void Isolate::__FatalException(TryCatch &try_catch) {
@@ -1825,7 +1832,7 @@ static void DebugBreakMessageHandler(const Debug::Message& message) {
 
 
 Handle<Value> Isolate::Binding(const Arguments& args) {
-  Isolate *isolate = getCurrentIsolate();
+  Isolate *isolate = Isolate::GetCurrent();
   HandleScope scope;
 
   Local<String> module = args[0]->ToString();
@@ -2333,7 +2340,7 @@ void Isolate::EnableDebugSignalHandler(int signal) {
   // Break once process will return execution to v8
   v8::Debug::DebugBreak();
 
-  Isolate *isolate = getCurrentIsolate();
+  Isolate *isolate = Isolate::GetCurrent();
   if (!isolate->debugger_running) {
     fprintf(stderr, "Hit SIGUSR1 - starting debugger agent.\n");
     isolate->EnableDebug(false);
@@ -2349,7 +2356,7 @@ bool Isolate::EnableDebugSignalHandler(DWORD signal) {
   // Break once process will return execution to v8
   v8::Debug::DebugBreak();
 
-  Isolate *isolate = getCurrentIsolate();
+  Isolate *isolate = Isolate::GetCurrent();
   if (!isolate->debugger_running) {
     fprintf(stderr, "Hit Ctrl+Break - starting debugger agent.\n");
     isolate->EnableDebug(false);
@@ -2420,26 +2427,26 @@ char** Isolate::Init(int argc, char *argv[]) {
   RegisterSignalHandler(SIGTERM, SignalExit);
 #endif // __POSIX__
 
-  uv_prepare_init(uv_default_loop(), &prepare_tick_watcher);
+  uv_prepare_init(Loop(), &prepare_tick_watcher);
   uv_prepare_start(&prepare_tick_watcher, PrepareTick);
-  uv_unref(uv_default_loop());
+  uv_unref(Loop());
 
-  uv_check_init(uv_default_loop(), &check_tick_watcher);
+  uv_check_init(Loop(), &check_tick_watcher);
   uv_check_start(&check_tick_watcher,CheckTick);
-  uv_unref(uv_default_loop());
+  uv_unref(Loop());
 
-  uv_idle_init(uv_default_loop(), &tick_spinner);
-  uv_unref(uv_default_loop());
+  uv_idle_init(Loop(), &tick_spinner);
+  uv_unref(Loop());
 
-  uv_check_init(uv_default_loop(), &gc_check);
+  uv_check_init(Loop(), &gc_check);
   uv_check_start(&gc_check, Check);
-  uv_unref(uv_default_loop());
+  uv_unref(Loop());
 
-  uv_idle_init(uv_default_loop(), &gc_idle);
-  uv_unref(uv_default_loop());
+  uv_idle_init(Loop(), &gc_idle);
+  uv_unref(Loop());
 
-  uv_timer_init(uv_default_loop(), &gc_timer);
-  uv_unref(uv_default_loop());
+  uv_timer_init(Loop(), &gc_timer);
+  uv_unref(Loop());
 
   V8::SetFatalErrorHandler(node::OnFatalError);
 
@@ -2451,10 +2458,10 @@ char** Isolate::Init(int argc, char *argv[]) {
   // main thread to execute a random bit of javascript - which will give V8
   // control so it can handle whatever new message had been received on the
   // debug thread.
-  uv_async_init(uv_default_loop(), &node::debug_watcher,
+  uv_async_init(Loop(), &node::debug_watcher,
       node::DebugMessageCallback);
   // unref it so that we exit the event loop despite it being active.
-  uv_unref(uv_default_loop());
+  uv_unref(Loop());
 
 
   // If the --debug flag was specified then initialize the debug thread.
@@ -2510,7 +2517,7 @@ int Isolate::Start(int argc, char *argv[]) {
   // there are no watchers on the loop (except for the ones that were
   // uv_unref'd) then this function exits. As long as there are active
   // watchers, it blocks.
-  uv_run(uv_default_loop());
+  uv_run(Loop());
 
   EmitExit(process);
 
@@ -2521,6 +2528,10 @@ int Isolate::Start(int argc, char *argv[]) {
 #endif  // NDEBUG
 
   return 0;
+}
+    
+uv_loop_t *Isolate::Loop() {
+    return loop_;
 }
     
 Isolate::Isolate() {
@@ -2544,12 +2555,15 @@ Isolate::Isolate() {
 #endif
     debugger_running = false;
     uncaught_exception_counter = 0;
+    loop_ = uv_loop_new();
 }
 
-Isolate::~Isolate() {}
+Isolate::~Isolate() {
+    uv_loop_delete(loop_);
+}
 
 int Start(int argc, char **argv) {
-  return getCurrentIsolate()->Start(argc, argv);
+  return Isolate::GetCurrent()->Start(argc, argv);
 }
 
 }  // namespace node

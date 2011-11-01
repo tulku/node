@@ -38,6 +38,7 @@ class SignalWatcher : ObjectWrap {
   SignalWatcher(int sig) : ObjectWrap() {
     ev_signal_init(&watcher_, SignalWatcher::Callback, sig);
     watcher_.data = this;
+    loop = Isolate::GetCurrentLoop()->ev;
   }
 
   ~SignalWatcher() {
@@ -55,6 +56,7 @@ class SignalWatcher : ObjectWrap {
   void Stop();
 
   ev_signal watcher_;
+  struct ev_loop *loop;
 };
 
 }  // namespace node

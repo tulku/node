@@ -39,6 +39,7 @@ class StatWatcher : ObjectWrap {
     path_ = NULL;
     ev_init(&watcher_, StatWatcher::Callback);
     watcher_.data = this;
+    loop = Isolate::GetCurrentLoop()->ev;
   }
 
   ~StatWatcher() {
@@ -56,6 +57,7 @@ class StatWatcher : ObjectWrap {
   void Stop();
 
   ev_stat watcher_;
+  struct ev_loop *loop;
   bool persistent_;
   char *path_;
 };

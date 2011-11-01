@@ -115,7 +115,7 @@ Handle<Value> IOWatcher::Stop(const Arguments& args) {
 
 void IOWatcher::Start() {
   if (!ev_is_active(&watcher_)) {
-    ev_io_start(EV_DEFAULT_UC_ &watcher_);
+    ev_io_start(loop, &watcher_);
     Ref();
   }
 }
@@ -123,7 +123,7 @@ void IOWatcher::Start() {
 
 void IOWatcher::Stop() {
   if (ev_is_active(&watcher_)) {
-    ev_io_stop(EV_DEFAULT_UC_ &watcher_);
+    ev_io_stop(loop, &watcher_);
     Unref();
   }
 }

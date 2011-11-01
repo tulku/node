@@ -84,14 +84,15 @@ Handle<Value> FSEventWrap::Start(const Arguments& args) {
 
   String::Utf8Value path(args[0]->ToString());
 
-  int r = uv_fs_event_init(uv_default_loop(), &wrap->handle_, *path, OnEvent);
+  uv_loop_t *loop = Isolate::GetCurrentLoop();
+  int r = uv_fs_event_init(loop, &wrap->handle_, *path, OnEvent);
   if (r == 0) {
     // Check for persistent argument
     if (!args[1]->IsTrue()) {
-      uv_unref(uv_default_loop());
+      uv_unref(loop);
     }
   } else { 
-    SetErrno(uv_last_error(uv_default_loop()));
+    SetLastErrno();
   }
 
   return scope.Close(Integer::New(r));
@@ -108,7 +109,7 @@ void FSEventWrap::OnEvent(uv_fs_event_t* handle, const char* filename,
   assert(wrap->object_.IsEmpty() == false);
 
   if (status) {
-    SetErrno(uv_last_error(uv_default_loop()));
+    SetLastErrno();
     eventStr = String::Empty();
   } else {
     switch (events) {

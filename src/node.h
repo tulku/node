@@ -84,6 +84,8 @@ public:
     
 class Isolate {
 public:
+    static Isolate* GetCurrent();
+    static uv_loop_t* GetCurrentLoop();
     int Start(int argc, char *argv[]);
     int Stop(int signum);
     static Isolate* New();
@@ -94,6 +96,7 @@ public:
         const char *path = NULL);
     void __FatalException(v8::TryCatch &try_catch);
     void __SetErrno(uv_err_t err);
+    uv_loop_t *Loop();
 
     Isolate();
     ~Isolate();
@@ -189,6 +192,7 @@ private:
     uv_check_t gc_check;
     uv_idle_t gc_idle;
     uv_timer_t gc_timer;
+    uv_loop_t *loop_;
     
     int tick_time_head;
     
@@ -196,8 +200,6 @@ private:
     v8::Persistent<v8::Array> module_load_list;
 
 };
-
-Isolate *getCurrentIsolate();
 
 int Start(int argc, char *argv[]);
 
@@ -234,7 +236,6 @@ do {                                                                      \
 enum encoding {ASCII, UTF8, BASE64, UCS2, BINARY, HEX};
 enum encoding ParseEncoding(v8::Handle<v8::Value> encoding_v,
                             enum encoding _default = BINARY);
-void FatalException(v8::TryCatch &try_catch);
 void DisplayExceptionLine(v8::TryCatch &try_catch); // hack
 
 v8::Local<v8::Value> Encode(const void *buf, size_t len,

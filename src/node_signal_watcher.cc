@@ -99,8 +99,8 @@ Handle<Value> SignalWatcher::Start(const Arguments& args) {
 
 void SignalWatcher::Start () {
   if (!watcher_.active) {
-    ev_signal_start(EV_DEFAULT_UC_ &watcher_);
-    ev_unref(EV_DEFAULT_UC);
+    ev_signal_start(loop, &watcher_);
+    ev_unref(loop);
     Ref();
   }
 }
@@ -114,8 +114,8 @@ Handle<Value> SignalWatcher::Stop(const Arguments& args) {
 
 void SignalWatcher::Stop () {
   if (watcher_.active) {
-    ev_ref(EV_DEFAULT_UC);
-    ev_signal_stop(EV_DEFAULT_UC_ &watcher_);
+    ev_ref(loop);
+    ev_signal_stop(loop, &watcher_);
     Unref();
   }
 }

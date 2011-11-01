@@ -45,7 +45,7 @@ namespace node {
 using namespace v8;
 
 static Handle<Value> GetHostname(const Arguments& args) {
-  Isolate *isolate = node::getCurrentIsolate();
+  Isolate *isolate = node::Isolate::GetCurrent();
   HandleScope scope;
   char s[255];
   int r = gethostname(s, 255);
