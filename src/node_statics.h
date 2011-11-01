@@ -22,9 +22,8 @@ public:
 #define NODE_EXT_LIST_START typedef struct _ext_statics {
 #define NODE_EXT_LIST_ITEM NODE_EXT_STATICS_DECL
 #define NODE_EXT_LIST_END                \
-NODE_EXT_STATICS_DECL(node_io_watcher) \
-NODE_EXT_STATICS_DECL(node_stream_wrap) \
-NODE_EXT_STATICS_DECL(node_array) \
+  NODE_EXT_STATICS_DECL(node_io_watcher) \
+  NODE_EXT_STATICS_DECL(node_stream_wrap) \
   } ext_statics;
 
 #include "node_extensions.h"
