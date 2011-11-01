@@ -47,19 +47,17 @@ struct BatchedMethods {
 
 class ArrayBuffer {
  public:
-  static v8::Persistent<v8::FunctionTemplate> GetTemplate() {
-    static v8::Persistent<v8::FunctionTemplate> ft_cache;
-    if (!ft_cache.IsEmpty())
-      return ft_cache;
-
+  static v8::Handle<v8::FunctionTemplate> GetTemplate() {
     v8::HandleScope scope;
-    ft_cache = v8::Persistent<v8::FunctionTemplate>::New(
+    v8::Handle<v8::FunctionTemplate> ft_cache;
+
+    ft_cache = v8::Handle<v8::FunctionTemplate>(
         v8::FunctionTemplate::New(&ArrayBuffer::V8New));
     ft_cache->SetClassName(v8::String::New("ArrayBuffer"));
     v8::Local<v8::ObjectTemplate> instance = ft_cache->InstanceTemplate();
     instance->SetInternalFieldCount(1);  // Buffer.
 
-    return ft_cache;
+    return scope.Close(ft_cache);
   }
 
   static bool HasInstance(v8::Handle<v8::Value> value) {
@@ -132,13 +130,11 @@ static bool checkAlignment(unsigned int val, unsigned int bytes) {
 template <unsigned int TBytes, v8::ExternalArrayType TEAType>
 class TypedArray {
  public:
-  static v8::Persistent<v8::FunctionTemplate> GetTemplate() {
-    static v8::Persistent<v8::FunctionTemplate> ft_cache;
-    if (!ft_cache.IsEmpty())
-      return ft_cache;
-
+  static v8::Handle<v8::FunctionTemplate> GetTemplate() {
     v8::HandleScope scope;
-    ft_cache = v8::Persistent<v8::FunctionTemplate>::New(
+    v8::Handle<v8::FunctionTemplate> ft_cache;
+
+    ft_cache = v8::Handle<v8::FunctionTemplate>(
         v8::FunctionTemplate::New(&TypedArray<TBytes, TEAType>::V8New));
     v8::Local<v8::ObjectTemplate> instance = ft_cache->InstanceTemplate();
     instance->SetInternalFieldCount(0);
@@ -163,7 +159,7 @@ class TypedArray {
                                               default_signature));
     }
 
-    return ft_cache;
+    return scope.Close(ft_cache);
   }
 
   static bool HasInstance(v8::Handle<v8::Value> value) {
@@ -481,13 +477,11 @@ double valueToCType(v8::Handle<v8::Value> value) {
 
 class DataView {
  public:
-  static v8::Persistent<v8::FunctionTemplate> GetTemplate() {
-    static v8::Persistent<v8::FunctionTemplate> ft_cache;
-    if (!ft_cache.IsEmpty())
-      return ft_cache;
-
+  static v8::Handle<v8::FunctionTemplate> GetTemplate() {
     v8::HandleScope scope;
-    ft_cache = v8::Persistent<v8::FunctionTemplate>::New(
+    v8::Handle<v8::FunctionTemplate> ft_cache;
+
+    ft_cache = v8::Handle<v8::FunctionTemplate>(
         v8::FunctionTemplate::New(&DataView::V8New));
     ft_cache->SetClassName(v8::String::New("DataView"));
     v8::Local<v8::ObjectTemplate> instance = ft_cache->InstanceTemplate();
@@ -521,7 +515,7 @@ class DataView {
                                               default_signature));
     }
 
-    return ft_cache;
+    return scope.Close(ft_cache);
   }
 
   static bool HasInstance(v8::Handle<v8::Value> value) {
