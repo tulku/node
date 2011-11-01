@@ -51,7 +51,7 @@
 
 namespace node {
 
-node_module_struct* get_builtin_module(const char *name)
+node_module_struct* get_builtin_module(const char *name, int *idx)
 {
   char buf[128];
   node_module_struct *cur = NULL;
@@ -61,6 +61,7 @@ node_module_struct* get_builtin_module(const char *name)
   for (int i = 0; node_module_list[i] != NULL; i++) {
     cur = node_module_list[i];
     if (strcmp(cur->modname, buf) == 0) {
+      if(idx) *idx = i;
       return cur;
     }
   }

@@ -44,29 +44,32 @@ using v8::Integer;
 typedef class ReqWrap<uv_shutdown_t> ShutdownWrap;
 typedef class ReqWrap<uv_write_t> WriteWrap;
 
-
-static size_t slab_used;
-static uv_stream_t* handle_that_last_alloced;
-static Persistent<String> slab_sym;
-static Persistent<String> buffer_sym;
-static Persistent<String> write_queue_size_sym;
-static bool initialized;
-
+class StreamStatics : public ModuleStatics {
+    size_t slab_used;
+    uv_stream_t* handle_that_last_alloced;
+    Persistent<String> slab_sym;
+    Persistent<String> buffer_sym;
+    Persistent<String> write_queue_size_sym;
+    bool initialized;
+    friend class StreamWrap;
+    StreamStatics() {initialized = false;}
+};
 
 void StreamWrap::Initialize(Handle<Object> target) {
-  if (initialized) {
+  NODE_STATICS_NEW(node_stream_wrap, StreamStatics, statics);
+  if (statics->initialized) {
     return;
   } else {
-    initialized = true;
+    statics->initialized = true;
   }
 
   HandleScope scope;
 
   HandleWrap::Initialize(target);
 
-  slab_sym = Persistent<String>::New(String::NewSymbol("slab"));
-  buffer_sym = Persistent<String>::New(String::NewSymbol("buffer"));
-  write_queue_size_sym =
+  statics->slab_sym = Persistent<String>::New(String::NewSymbol("slab"));
+  statics->buffer_sym = Persistent<String>::New(String::NewSymbol("buffer"));
+  statics->write_queue_size_sym =
     Persistent<String>::New(String::NewSymbol("writeQueueSize"));
 }
 
@@ -89,7 +92,8 @@ void StreamWrap::SetHandle(uv_handle_t* h) {
 
 void StreamWrap::UpdateWriteQueueSize() {
   HandleScope scope;
-  object_->Set(write_queue_size_sym, Integer::New(stream_->write_queue_size));
+  StreamStatics *statics = NODE_STATICS_GET(node_stream_wrap, StreamStatics);
+  object_->Set(statics->write_queue_size_sym, Integer::New(stream_->write_queue_size));
 }
 
 
@@ -130,17 +134,19 @@ Handle<Value> StreamWrap::ReadStop(const Arguments& args) {
 
 inline char* StreamWrap::NewSlab(Handle<Object> global,
                                         Handle<Object> wrap_obj) {
+  StreamStatics *statics = NODE_STATICS_GET(node_stream_wrap, StreamStatics);
   Buffer* b = Buffer::New(SLAB_SIZE);
-  global->SetHiddenValue(slab_sym, b->handle_);
+  global->SetHiddenValue(statics->slab_sym, b->handle_);
   assert(Buffer::Length(b) == SLAB_SIZE);
-  slab_used = 0;
-  wrap_obj->SetHiddenValue(slab_sym, b->handle_);
+  statics->slab_used = 0;
+  wrap_obj->SetHiddenValue(statics->slab_sym, b->handle_);
   return Buffer::Data(b);
 }
 
 
 uv_buf_t StreamWrap::OnAlloc(uv_handle_t* handle, size_t suggested_size) {
   HandleScope scope;
+  StreamStatics *statics = NODE_STATICS_GET(node_stream_wrap, StreamStatics);
 
   StreamWrap* wrap = static_cast<StreamWrap*>(handle->data);
   assert(wrap->stream_ == reinterpret_cast<uv_stream_t*>(handle));
@@ -148,7 +154,7 @@ uv_buf_t StreamWrap::OnAlloc(uv_handle_t* handle, size_t suggested_size) {
   char* slab = NULL;
 
   Handle<Object> global = Context::GetCurrent()->Global();
-  Local<Value> slab_v = global->GetHiddenValue(slab_sym);
+  Local<Value> slab_v = global->GetHiddenValue(statics->slab_sym);
 
   if (slab_v.IsEmpty()) {
     // No slab currently. Create a new one.
@@ -158,24 +164,24 @@ uv_buf_t StreamWrap::OnAlloc(uv_handle_t* handle, size_t suggested_size) {
     Local<Object> slab_obj = slab_v->ToObject();
     slab = Buffer::Data(slab_obj);
     assert(Buffer::Length(slab_obj) == SLAB_SIZE);
-    assert(SLAB_SIZE >= slab_used);
+    assert(SLAB_SIZE >= statics->slab_used);
 
     // If less than 64kb is remaining on the slab allocate a new one.
-    if (SLAB_SIZE - slab_used < 64 * 1024) {
+    if (SLAB_SIZE - statics->slab_used < 64 * 1024) {
       slab = NewSlab(global, wrap->object_);
     } else {
-      wrap->object_->SetHiddenValue(slab_sym, slab_obj);
+      wrap->object_->SetHiddenValue(statics->slab_sym, slab_obj);
     }
   }
 
   uv_buf_t buf;
-  buf.base = slab + slab_used;
-  buf.len = MIN(SLAB_SIZE - slab_used, suggested_size);
+  buf.base = slab + statics->slab_used;
+  buf.len = MIN(SLAB_SIZE - statics->slab_used, suggested_size);
 
-  wrap->slab_offset_ = slab_used;
-  slab_used += buf.len;
+  wrap->slab_offset_ = statics->slab_used;
+  statics->slab_used += buf.len;
 
-  handle_that_last_alloced = reinterpret_cast<uv_stream_t*>(handle);
+  statics->handle_that_last_alloced = reinterpret_cast<uv_stream_t*>(handle);
 
   return buf;
 }
@@ -184,6 +190,7 @@ uv_buf_t StreamWrap::OnAlloc(uv_handle_t* handle, size_t suggested_size) {
 void StreamWrap::OnReadCommon(uv_stream_t* handle, ssize_t nread,
     uv_buf_t buf, uv_handle_type pending) {
   HandleScope scope;
+  StreamStatics *statics = NODE_STATICS_GET(node_stream_wrap, StreamStatics);
 
   StreamWrap* wrap = static_cast<StreamWrap*>(handle->data);
 
@@ -192,13 +199,13 @@ void StreamWrap::OnReadCommon(uv_stream_t* handle, ssize_t nread,
   assert(wrap->object_.IsEmpty() == false);
 
   // Remove the reference to the slab to avoid memory leaks;
-  Local<Value> slab_v = wrap->object_->GetHiddenValue(slab_sym);
-  wrap->object_->SetHiddenValue(slab_sym, v8::Null());
+  Local<Value> slab_v = wrap->object_->GetHiddenValue(statics->slab_sym);
+  wrap->object_->SetHiddenValue(statics->slab_sym, v8::Null());
 
   if (nread < 0)  {
     // EOF or Error
-    if (handle_that_last_alloced == handle) {
-      slab_used -= buf.len;
+    if (statics->handle_that_last_alloced == handle) {
+      statics->slab_used -= buf.len;
     }
 
     SetLastErrno();
@@ -208,8 +215,8 @@ void StreamWrap::OnReadCommon(uv_stream_t* handle, ssize_t nread,
 
   assert(nread <= buf.len);
 
-  if (handle_that_last_alloced == handle) {
-    slab_used -= (buf.len - nread);
+  if (statics->handle_that_last_alloced == handle) {
+    statics->slab_used -= (buf.len - nread);
   }
 
   if (nread > 0) {
@@ -258,6 +265,7 @@ void StreamWrap::OnRead2(uv_pipe_t* handle, ssize_t nread, uv_buf_t buf,
 
 Handle<Value> StreamWrap::Write(const Arguments& args) {
   HandleScope scope;
+  StreamStatics *statics = NODE_STATICS_GET(node_stream_wrap, StreamStatics);
 
   UNWRAP
 
@@ -280,7 +288,7 @@ Handle<Value> StreamWrap::Write(const Arguments& args) {
 
   WriteWrap* req_wrap = new WriteWrap();
 
-  req_wrap->object_->SetHiddenValue(buffer_sym, buffer_obj);
+  req_wrap->object_->SetHiddenValue(statics->buffer_sym, buffer_obj);
 
   uv_buf_t buf;
   buf.base = Buffer::Data(buffer_obj) + offset;
@@ -328,6 +336,7 @@ void StreamWrap::AfterWrite(uv_write_t* req, int status) {
   StreamWrap* wrap = (StreamWrap*) req->handle->data;
 
   HandleScope scope;
+  StreamStatics *statics = NODE_STATICS_GET(node_stream_wrap, StreamStatics);
 
   // The wrap and request objects should still be there.
   assert(req_wrap->object_.IsEmpty() == false);
@@ -343,7 +352,7 @@ void StreamWrap::AfterWrite(uv_write_t* req, int status) {
     Integer::New(status),
     Local<Value>::New(wrap->object_),
     Local<Value>::New(req_wrap->object_),
-    req_wrap->object_->GetHiddenValue(buffer_sym),
+    req_wrap->object_->GetHiddenValue(statics->buffer_sym),
   };
 
   MakeCallback(req_wrap->object_, "oncomplete", 4, argv);

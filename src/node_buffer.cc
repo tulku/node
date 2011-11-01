@@ -21,6 +21,7 @@
 
 
 #include <node.h>
+#include <node_statics.h>
 #include <node_buffer.h>
 
 #include <v8.h>
@@ -43,6 +44,14 @@
 namespace node {
 
 using namespace v8;
+    
+class BufferStatics : public ModuleStatics {
+  Persistent<String> length_symbol;
+  Persistent<String> chars_written_sym;
+  Persistent<String> write_sym;
+  Persistent<FunctionTemplate> constructor_template;
+  friend class Buffer;
+};
 
 #define SLICE_ARGS(start_arg, end_arg)                               \
   if (!start_arg->IsInt32() || !end_arg->IsInt32()) {                \
@@ -63,13 +72,6 @@ using namespace v8;
     return ThrowException(Exception::Error(                          \
           String::New("end cannot be longer than parent.length")));  \
   }
-
-
-static Persistent<String> length_symbol;
-static Persistent<String> chars_written_sym;
-static Persistent<String> write_sym;
-Persistent<FunctionTemplate> Buffer::constructor_template;
-
 
 static inline size_t base64_decoded_size(const char *src, size_t size) {
   const char *const end = src + size;
@@ -132,9 +134,10 @@ Handle<Object> Buffer::New(Handle<String> string) {
 
 Buffer* Buffer::New(size_t length) {
   HandleScope scope;
+  BufferStatics *statics = NODE_STATICS_GET(node_buffer, BufferStatics);
 
   Local<Value> arg = Integer::NewFromUnsigned(length);
-  Local<Object> b = constructor_template->GetFunction()->NewInstance(1, &arg);
+  Local<Object> b = statics->constructor_template->GetFunction()->NewInstance(1, &arg);
   if (b.IsEmpty()) return NULL;
 
   return ObjectWrap::Unwrap<Buffer>(b);
@@ -143,9 +146,10 @@ Buffer* Buffer::New(size_t length) {
 
 Buffer* Buffer::New(char* data, size_t length) {
   HandleScope scope;
+  BufferStatics *statics = NODE_STATICS_GET(node_buffer, BufferStatics);
 
   Local<Value> arg = Integer::NewFromUnsigned(0);
-  Local<Object> obj = constructor_template->GetFunction()->NewInstance(1, &arg);
+  Local<Object> obj = statics->constructor_template->GetFunction()->NewInstance(1, &arg);
 
   Buffer *buffer = ObjectWrap::Unwrap<Buffer>(obj);
   buffer->Replace(data, length, NULL, NULL);
@@ -157,9 +161,10 @@ Buffer* Buffer::New(char* data, size_t length) {
 Buffer* Buffer::New(char *data, size_t length,
                     free_callback callback, void *hint) {
   HandleScope scope;
+  BufferStatics *statics = NODE_STATICS_GET(node_buffer, BufferStatics);
 
   Local<Value> arg = Integer::NewFromUnsigned(0);
-  Local<Object> obj = constructor_template->GetFunction()->NewInstance(1, &arg);
+  Local<Object> obj = statics->constructor_template->GetFunction()->NewInstance(1, &arg);
 
   Buffer *buffer = ObjectWrap::Unwrap<Buffer>(obj);
   buffer->Replace(data, length, callback, hint);
@@ -169,8 +174,9 @@ Buffer* Buffer::New(char *data, size_t length,
 
 
 Handle<Value> Buffer::New(const Arguments &args) {
+  BufferStatics *statics = NODE_STATICS_GET(node_buffer, BufferStatics);
   if (!args.IsConstructCall()) {
-    return FromConstructorTemplate(constructor_template, args);
+    return FromConstructorTemplate(statics->constructor_template, args);
   }
 
   HandleScope scope;
@@ -205,6 +211,7 @@ Buffer::~Buffer() {
 void Buffer::Replace(char *data, size_t length,
                      free_callback callback, void *hint) {
   HandleScope scope;
+  BufferStatics *statics = NODE_STATICS_GET(node_buffer, BufferStatics);
 
   if (callback_) {
     callback_(data_, callback_hint_);
@@ -231,7 +238,7 @@ void Buffer::Replace(char *data, size_t length,
   handle_->SetIndexedPropertiesToExternalArrayData(data_,
                                                    kExternalUnsignedByteArray,
                                                    length_);
-  handle_->Set(length_symbol, Integer::NewFromUnsigned(length_));
+  handle_->Set(statics->length_symbol, Integer::NewFromUnsigned(length_));
 }
 
 
@@ -458,6 +465,7 @@ Handle<Value> Buffer::Copy(const Arguments &args) {
 // var charsWritten = buffer.utf8Write(string, offset, [maxLength]);
 Handle<Value> Buffer::Utf8Write(const Arguments &args) {
   HandleScope scope;
+  BufferStatics *statics = NODE_STATICS_GET(node_buffer, BufferStatics);
   Buffer *buffer = ObjectWrap::Unwrap<Buffer>(args.This());
 
   if (!args[0]->IsString()) {
@@ -472,7 +480,7 @@ Handle<Value> Buffer::Utf8Write(const Arguments &args) {
   int length = s->Length();
 
   if (length == 0) {
-    constructor_template->GetFunction()->Set(chars_written_sym,
+    statics->constructor_template->GetFunction()->Set(statics->chars_written_sym,
                                              Integer::New(0));
     return scope.Close(Integer::New(0));
   }
@@ -496,7 +504,7 @@ Handle<Value> Buffer::Utf8Write(const Arguments &args) {
                              (String::HINT_MANY_WRITES_EXPECTED |
                               String::NO_NULL_TERMINATION));
 
-  constructor_template->GetFunction()->Set(chars_written_sym,
+  statics->constructor_template->GetFunction()->Set(statics->chars_written_sym,
                                            Integer::New(char_written));
 
   return scope.Close(Integer::New(written));
@@ -506,6 +514,7 @@ Handle<Value> Buffer::Utf8Write(const Arguments &args) {
 // var charsWritten = buffer.ucs2Write(string, offset, [maxLength]);
 Handle<Value> Buffer::Ucs2Write(const Arguments &args) {
   HandleScope scope;
+  BufferStatics *statics = NODE_STATICS_GET(node_buffer, BufferStatics);
   Buffer *buffer = ObjectWrap::Unwrap<Buffer>(args.This());
 
   if (!args[0]->IsString()) {
@@ -534,7 +543,7 @@ Handle<Value> Buffer::Ucs2Write(const Arguments &args) {
                          (String::HINT_MANY_WRITES_EXPECTED |
                           String::NO_NULL_TERMINATION));
 
-  constructor_template->GetFunction()->Set(chars_written_sym,
+  statics->constructor_template->GetFunction()->Set(statics->chars_written_sym,
                                            Integer::New(written));
 
   return scope.Close(Integer::New(written * 2));
@@ -544,6 +553,7 @@ Handle<Value> Buffer::Ucs2Write(const Arguments &args) {
 // var charsWritten = buffer.asciiWrite(string, offset);
 Handle<Value> Buffer::AsciiWrite(const Arguments &args) {
   HandleScope scope;
+  BufferStatics *statics = NODE_STATICS_GET(node_buffer, BufferStatics);
 
   Buffer *buffer = ObjectWrap::Unwrap<Buffer>(args.This());
 
@@ -573,7 +583,7 @@ Handle<Value> Buffer::AsciiWrite(const Arguments &args) {
                               (String::HINT_MANY_WRITES_EXPECTED |
                                String::NO_NULL_TERMINATION));
 
-  constructor_template->GetFunction()->Set(chars_written_sym,
+  statics->constructor_template->GetFunction()->Set(statics->chars_written_sym,
                                            Integer::New(written));
 
   return scope.Close(Integer::New(written));
@@ -583,6 +593,7 @@ Handle<Value> Buffer::AsciiWrite(const Arguments &args) {
 // var bytesWritten = buffer.base64Write(string, offset, [maxLength]);
 Handle<Value> Buffer::Base64Write(const Arguments &args) {
   HandleScope scope;
+  BufferStatics *statics = NODE_STATICS_GET(node_buffer, BufferStatics);
 
   assert(unbase64('/') == 63);
   assert(unbase64('+') == 62);
@@ -663,7 +674,7 @@ Handle<Value> Buffer::Base64Write(const Arguments &args) {
     *dst++ = ((c & 0x03) << 6) | (d & 0x3F);
   }
 
-  constructor_template->GetFunction()->Set(chars_written_sym,
+  statics->constructor_template->GetFunction()->Set(statics->chars_written_sym,
                                            Integer::New(s.length()));
 
   return scope.Close(Integer::New(dst - start));
@@ -672,6 +683,7 @@ Handle<Value> Buffer::Base64Write(const Arguments &args) {
 
 Handle<Value> Buffer::BinaryWrite(const Arguments &args) {
   HandleScope scope;
+  BufferStatics *statics = NODE_STATICS_GET(node_buffer, BufferStatics);
 
   Buffer *buffer = ObjectWrap::Unwrap<Buffer>(args.This());
 
@@ -697,7 +709,7 @@ Handle<Value> Buffer::BinaryWrite(const Arguments &args) {
 
   int written = DecodeWrite(p, max_length, s, BINARY);
 
-  constructor_template->GetFunction()->Set(chars_written_sym,
+  statics->constructor_template->GetFunction()->Set(statics->chars_written_sym,
                                            Integer::New(written));
 
   return scope.Close(Integer::New(written));
@@ -749,7 +761,8 @@ bool Buffer::HasInstance(v8::Handle<v8::Value> val) {
     return true;
 
   // Also check for SlowBuffers that are empty.
-  if (constructor_template->HasInstance(obj))
+  BufferStatics *statics = NODE_STATICS_GET(node_buffer, BufferStatics);
+  if (statics->constructor_template->HasInstance(obj))
     return true;
 
   return false;
@@ -758,40 +771,41 @@ bool Buffer::HasInstance(v8::Handle<v8::Value> val) {
 
 void Buffer::Initialize(Handle<Object> target) {
   HandleScope scope;
+    NODE_STATICS_NEW(node_buffer, BufferStatics, statics);
 
-  length_symbol = Persistent<String>::New(String::NewSymbol("length"));
-  chars_written_sym = Persistent<String>::New(String::NewSymbol("_charsWritten"));
+  statics->length_symbol = Persistent<String>::New(String::NewSymbol("length"));
+  statics->chars_written_sym = Persistent<String>::New(String::NewSymbol("_charsWritten"));
 
   Local<FunctionTemplate> t = FunctionTemplate::New(Buffer::New);
-  constructor_template = Persistent<FunctionTemplate>::New(t);
-  constructor_template->InstanceTemplate()->SetInternalFieldCount(1);
-  constructor_template->SetClassName(String::NewSymbol("SlowBuffer"));
+  statics->constructor_template = Persistent<FunctionTemplate>::New(t);
+  statics->constructor_template->InstanceTemplate()->SetInternalFieldCount(1);
+  statics->constructor_template->SetClassName(String::NewSymbol("SlowBuffer"));
 
   // copy free
-  NODE_SET_PROTOTYPE_METHOD(constructor_template, "binarySlice", Buffer::BinarySlice);
-  NODE_SET_PROTOTYPE_METHOD(constructor_template, "asciiSlice", Buffer::AsciiSlice);
-  NODE_SET_PROTOTYPE_METHOD(constructor_template, "base64Slice", Buffer::Base64Slice);
-  NODE_SET_PROTOTYPE_METHOD(constructor_template, "ucs2Slice", Buffer::Ucs2Slice);
+  NODE_SET_PROTOTYPE_METHOD(statics->constructor_template, "binarySlice", Buffer::BinarySlice);
+  NODE_SET_PROTOTYPE_METHOD(statics->constructor_template, "asciiSlice", Buffer::AsciiSlice);
+  NODE_SET_PROTOTYPE_METHOD(statics->constructor_template, "base64Slice", Buffer::Base64Slice);
+  NODE_SET_PROTOTYPE_METHOD(statics->constructor_template, "ucs2Slice", Buffer::Ucs2Slice);
   // TODO NODE_SET_PROTOTYPE_METHOD(t, "utf16Slice", Utf16Slice);
   // copy
-  NODE_SET_PROTOTYPE_METHOD(constructor_template, "utf8Slice", Buffer::Utf8Slice);
+  NODE_SET_PROTOTYPE_METHOD(statics->constructor_template, "utf8Slice", Buffer::Utf8Slice);
 
-  NODE_SET_PROTOTYPE_METHOD(constructor_template, "utf8Write", Buffer::Utf8Write);
-  NODE_SET_PROTOTYPE_METHOD(constructor_template, "asciiWrite", Buffer::AsciiWrite);
-  NODE_SET_PROTOTYPE_METHOD(constructor_template, "binaryWrite", Buffer::BinaryWrite);
-  NODE_SET_PROTOTYPE_METHOD(constructor_template, "base64Write", Buffer::Base64Write);
-  NODE_SET_PROTOTYPE_METHOD(constructor_template, "ucs2Write", Buffer::Ucs2Write);
-  NODE_SET_PROTOTYPE_METHOD(constructor_template, "fill", Buffer::Fill);
-  NODE_SET_PROTOTYPE_METHOD(constructor_template, "copy", Buffer::Copy);
+  NODE_SET_PROTOTYPE_METHOD(statics->constructor_template, "utf8Write", Buffer::Utf8Write);
+  NODE_SET_PROTOTYPE_METHOD(statics->constructor_template, "asciiWrite", Buffer::AsciiWrite);
+  NODE_SET_PROTOTYPE_METHOD(statics->constructor_template, "binaryWrite", Buffer::BinaryWrite);
+  NODE_SET_PROTOTYPE_METHOD(statics->constructor_template, "base64Write", Buffer::Base64Write);
+  NODE_SET_PROTOTYPE_METHOD(statics->constructor_template, "ucs2Write", Buffer::Ucs2Write);
+  NODE_SET_PROTOTYPE_METHOD(statics->constructor_template, "fill", Buffer::Fill);
+  NODE_SET_PROTOTYPE_METHOD(statics->constructor_template, "copy", Buffer::Copy);
 
-  NODE_SET_METHOD(constructor_template->GetFunction(),
+  NODE_SET_METHOD(statics->constructor_template->GetFunction(),
                   "byteLength",
                   Buffer::ByteLength);
-  NODE_SET_METHOD(constructor_template->GetFunction(),
+  NODE_SET_METHOD(statics->constructor_template->GetFunction(),
                   "makeFastBuffer",
                   Buffer::MakeFastBuffer);
 
-  target->Set(String::NewSymbol("SlowBuffer"), constructor_template->GetFunction());
+  target->Set(String::NewSymbol("SlowBuffer"), statics->constructor_template->GetFunction());
 }
 
 

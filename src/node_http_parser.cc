@@ -50,57 +50,56 @@
 namespace node {
 
 using namespace v8;
+    
+class HttpStatics : public ModuleStatics {
+public:
+    Persistent<String> on_headers_sym;
+    Persistent<String> on_headers_complete_sym;
+    Persistent<String> on_body_sym;
+    Persistent<String> on_message_complete_sym;
+    Persistent<String> delete_sym;
+    Persistent<String> get_sym;
+    Persistent<String> head_sym;
+    Persistent<String> post_sym;
+    Persistent<String> put_sym;
+    Persistent<String> connect_sym;
+    Persistent<String> options_sym;
+    Persistent<String> trace_sym;
+    Persistent<String> patch_sym;
+    Persistent<String> copy_sym;
+    Persistent<String> lock_sym;
+    Persistent<String> mkcol_sym;
+    Persistent<String> move_sym;
+    Persistent<String> propfind_sym;
+    Persistent<String> proppatch_sym;
+    Persistent<String> unlock_sym;
+    Persistent<String> report_sym;
+    Persistent<String> mkactivity_sym;
+    Persistent<String> checkout_sym;
+    Persistent<String> merge_sym;
+    Persistent<String> msearch_sym;
+    Persistent<String> notify_sym;
+    Persistent<String> subscribe_sym;
+    Persistent<String> unsubscribe_sym;
+    Persistent<String> unknown_method_sym;
+    Persistent<String> method_sym;
+    Persistent<String> status_code_sym;
+    Persistent<String> http_version_sym;
+    Persistent<String> version_major_sym;
+    Persistent<String> version_minor_sym;
+    Persistent<String> should_keep_alive_sym;
+    Persistent<String> upgrade_sym;
+    Persistent<String> headers_sym;
+    Persistent<String> url_sym;
+    struct http_parser_settings settings;
+    // This is a hack to get the current_buffer to the callbacks with the least
+    // amount of overhead. Nothing else will run while http_parser_execute()
+    // runs, therefore this pointer can be set and used for the execution.
+    Local<Value>* current_buffer;
+    char* current_buffer_data;
+    size_t current_buffer_len;
+};
 
-static Persistent<String> on_headers_sym;
-static Persistent<String> on_headers_complete_sym;
-static Persistent<String> on_body_sym;
-static Persistent<String> on_message_complete_sym;
-
-static Persistent<String> delete_sym;
-static Persistent<String> get_sym;
-static Persistent<String> head_sym;
-static Persistent<String> post_sym;
-static Persistent<String> put_sym;
-static Persistent<String> connect_sym;
-static Persistent<String> options_sym;
-static Persistent<String> trace_sym;
-static Persistent<String> patch_sym;
-static Persistent<String> copy_sym;
-static Persistent<String> lock_sym;
-static Persistent<String> mkcol_sym;
-static Persistent<String> move_sym;
-static Persistent<String> propfind_sym;
-static Persistent<String> proppatch_sym;
-static Persistent<String> unlock_sym;
-static Persistent<String> report_sym;
-static Persistent<String> mkactivity_sym;
-static Persistent<String> checkout_sym;
-static Persistent<String> merge_sym;
-static Persistent<String> msearch_sym;
-static Persistent<String> notify_sym;
-static Persistent<String> subscribe_sym;
-static Persistent<String> unsubscribe_sym;
-static Persistent<String> unknown_method_sym;
-
-static Persistent<String> method_sym;
-static Persistent<String> status_code_sym;
-static Persistent<String> http_version_sym;
-static Persistent<String> version_major_sym;
-static Persistent<String> version_minor_sym;
-static Persistent<String> should_keep_alive_sym;
-static Persistent<String> upgrade_sym;
-static Persistent<String> headers_sym;
-static Persistent<String> url_sym;
-
-static struct http_parser_settings settings;
-
-
-// This is a hack to get the current_buffer to the callbacks with the least
-// amount of overhead. Nothing else will run while http_parser_execute()
-// runs, therefore this pointer can be set and used for the execution.
-static Local<Value>* current_buffer;
-static char* current_buffer_data;
-static size_t current_buffer_len;
 
 
 #if defined(__GNUC__)
@@ -130,32 +129,33 @@ static size_t current_buffer_len;
 
 static inline Persistent<String>
 method_to_str(unsigned short m) {
+  HttpStatics *statics = NODE_STATICS_GET(node_http_parser, HttpStatics);
   switch (m) {
-    case HTTP_DELETE:     return delete_sym;
-    case HTTP_GET:        return get_sym;
-    case HTTP_HEAD:       return head_sym;
-    case HTTP_POST:       return post_sym;
-    case HTTP_PUT:        return put_sym;
-    case HTTP_CONNECT:    return connect_sym;
-    case HTTP_OPTIONS:    return options_sym;
-    case HTTP_TRACE:      return trace_sym;
-    case HTTP_PATCH:      return patch_sym;
-    case HTTP_COPY:       return copy_sym;
-    case HTTP_LOCK:       return lock_sym;
-    case HTTP_MKCOL:      return mkcol_sym;
-    case HTTP_MOVE:       return move_sym;
-    case HTTP_PROPFIND:   return propfind_sym;
-    case HTTP_PROPPATCH:  return proppatch_sym;
-    case HTTP_UNLOCK:     return unlock_sym;
-    case HTTP_REPORT:     return report_sym;
-    case HTTP_MKACTIVITY: return mkactivity_sym;
-    case HTTP_CHECKOUT:   return checkout_sym;
-    case HTTP_MERGE:      return merge_sym;
-    case HTTP_MSEARCH:    return msearch_sym;
-    case HTTP_NOTIFY:     return notify_sym;
-    case HTTP_SUBSCRIBE:  return subscribe_sym;
-    case HTTP_UNSUBSCRIBE:return unsubscribe_sym;
-    default:              return unknown_method_sym;
+    case HTTP_DELETE:     return statics->delete_sym;
+    case HTTP_GET:        return statics->get_sym;
+    case HTTP_HEAD:       return statics->head_sym;
+    case HTTP_POST:       return statics->post_sym;
+    case HTTP_PUT:        return statics->put_sym;
+    case HTTP_CONNECT:    return statics->connect_sym;
+    case HTTP_OPTIONS:    return statics->options_sym;
+    case HTTP_TRACE:      return statics->trace_sym;
+    case HTTP_PATCH:      return statics->patch_sym;
+    case HTTP_COPY:       return statics->copy_sym;
+    case HTTP_LOCK:       return statics->lock_sym;
+    case HTTP_MKCOL:      return statics->mkcol_sym;
+    case HTTP_MOVE:       return statics->move_sym;
+    case HTTP_PROPFIND:   return statics->propfind_sym;
+    case HTTP_PROPPATCH:  return statics->proppatch_sym;
+    case HTTP_UNLOCK:     return statics->unlock_sym;
+    case HTTP_REPORT:     return statics->report_sym;
+    case HTTP_MKACTIVITY: return statics->mkactivity_sym;
+    case HTTP_CHECKOUT:   return statics->checkout_sym;
+    case HTTP_MERGE:      return statics->merge_sym;
+    case HTTP_MSEARCH:    return statics->msearch_sym;
+    case HTTP_NOTIFY:     return statics->notify_sym;
+    case HTTP_SUBSCRIBE:  return statics->subscribe_sym;
+    case HTTP_UNSUBSCRIBE:return statics->unsubscribe_sym;
+    default:              return statics->unknown_method_sym;
   }
 }
 
@@ -279,7 +279,8 @@ public:
 
 
   HTTP_CB(on_headers_complete) {
-    Local<Value> cb = handle_->Get(on_headers_complete_sym);
+    HttpStatics *statics = NODE_STATICS_GET(node_http_parser, HttpStatics);
+    Local<Value> cb = handle_->Get(statics->on_headers_complete_sym);
 
     if (!cb->IsFunction())
       return 0;
@@ -292,30 +293,30 @@ public:
     }
     else {
       // Fast case, pass headers and URL to JS land.
-      message_info->Set(headers_sym, CreateHeaders());
+      message_info->Set(statics->headers_sym, CreateHeaders());
       if (parser_.type == HTTP_REQUEST)
-        message_info->Set(url_sym, url_.ToString());
+        message_info->Set(statics->url_sym, url_.ToString());
     }
     num_fields_ = num_values_ = -1;
 
     // METHOD
     if (parser_.type == HTTP_REQUEST) {
-      message_info->Set(method_sym, method_to_str(parser_.method));
+      message_info->Set(statics->method_sym, method_to_str(parser_.method));
     }
 
     // STATUS
     if (parser_.type == HTTP_RESPONSE) {
-      message_info->Set(status_code_sym, Integer::New(parser_.status_code));
+      message_info->Set(statics->status_code_sym, Integer::New(parser_.status_code));
     }
 
     // VERSION
-    message_info->Set(version_major_sym, Integer::New(parser_.http_major));
-    message_info->Set(version_minor_sym, Integer::New(parser_.http_minor));
+    message_info->Set(statics->version_major_sym, Integer::New(parser_.http_major));
+    message_info->Set(statics->version_minor_sym, Integer::New(parser_.http_minor));
 
-    message_info->Set(should_keep_alive_sym,
+    message_info->Set(statics->should_keep_alive_sym,
         http_should_keep_alive(&parser_) ? True() : False());
 
-    message_info->Set(upgrade_sym, parser_.upgrade ? True() : False());
+    message_info->Set(statics->upgrade_sym, parser_.upgrade ? True() : False());
 
     Local<Value> argv[1] = { message_info };
 
@@ -333,14 +334,15 @@ public:
 
   HTTP_DATA_CB(on_body) {
     HandleScope scope;
+    HttpStatics *statics = NODE_STATICS_GET(node_http_parser, HttpStatics);
 
-    Local<Value> cb = handle_->Get(on_body_sym);
+    Local<Value> cb = handle_->Get(statics->on_body_sym);
     if (!cb->IsFunction())
       return 0;
 
     Handle<Value> argv[3] = {
-      *current_buffer,
-      Integer::New(at - current_buffer_data),
+      *statics->current_buffer,
+      Integer::New(at - statics->current_buffer_data),
       Integer::New(length)
     };
 
@@ -357,11 +359,12 @@ public:
 
   HTTP_CB(on_message_complete) {
     HandleScope scope;
+    HttpStatics *statics = NODE_STATICS_GET(node_http_parser, HttpStatics);
 
     if (num_fields_ != -1)
       Flush(); // Flush trailing HTTP headers.
 
-    Local<Value> cb = handle_->Get(on_message_complete_sym);
+    Local<Value> cb = handle_->Get(statics->on_message_complete_sym);
 
     if (!cb->IsFunction())
       return 0;
@@ -398,13 +401,14 @@ public:
   // var bytesParsed = parser->execute(buffer, off, len);
   static Handle<Value> Execute(const Arguments& args) {
     HandleScope scope;
+    HttpStatics *statics = NODE_STATICS_GET(node_http_parser, HttpStatics);
 
     Parser* parser = ObjectWrap::Unwrap<Parser>(args.This());
 
-    assert(!current_buffer);
-    assert(!current_buffer_data);
+    assert(!statics->current_buffer);
+    assert(!statics->current_buffer_data);
 
-    if (current_buffer) {
+    if (statics->current_buffer) {
       return ThrowException(Exception::TypeError(
             String::New("Already parsing a buffer")));
     }
@@ -433,18 +437,18 @@ public:
     }
 
     // Assign 'buffer_' while we parse. The callbacks will access that varible.
-    current_buffer = &buffer_v;
-    current_buffer_data = buffer_data;
-    current_buffer_len = buffer_len;
+    statics->current_buffer = &buffer_v;
+    statics->current_buffer_data = buffer_data;
+    statics->current_buffer_len = buffer_len;
     parser->got_exception_ = false;
 
     size_t nparsed =
-      http_parser_execute(&parser->parser_, &settings, buffer_data + off, len);
+      http_parser_execute(&parser->parser_, &statics->settings, buffer_data + off, len);
 
     // Unassign the 'buffer_' variable
-    assert(current_buffer);
-    current_buffer = NULL;
-    current_buffer_data = NULL;
+    assert(statics->current_buffer);
+    statics->current_buffer = NULL;
+    statics->current_buffer_data = NULL;
 
     // If there was an exception in one of the callbacks
     if (parser->got_exception_) return Local<Value>();
@@ -465,13 +469,14 @@ public:
 
   static Handle<Value> Finish(const Arguments& args) {
     HandleScope scope;
+    HttpStatics *statics = NODE_STATICS_GET(node_http_parser, HttpStatics);
 
     Parser* parser = ObjectWrap::Unwrap<Parser>(args.This());
 
-    assert(!current_buffer);
+    assert(!statics->current_buffer);
     parser->got_exception_ = false;
 
-    int rv = http_parser_execute(&(parser->parser_), &settings, NULL, 0);
+    int rv = http_parser_execute(&(parser->parser_), &statics->settings, NULL, 0);
 
     if (parser->got_exception_) return Local<Value>();
 
@@ -523,8 +528,9 @@ private:
   // spill headers and request path to JS land
   void Flush() {
     HandleScope scope;
+    HttpStatics *statics = NODE_STATICS_GET(node_http_parser, HttpStatics);
 
-    Local<Value> cb = handle_->Get(on_headers_sym);
+    Local<Value> cb = handle_->Get(statics->on_headers_sym);
 
     if (!cb->IsFunction())
       return;
@@ -567,6 +573,7 @@ private:
 
 void InitHttpParser(Handle<Object> target) {
   HandleScope scope;
+  NODE_STATICS_NEW(node_http_parser, HttpStatics, statics);
 
   Local<FunctionTemplate> t = FunctionTemplate::New(Parser::New);
   t->InstanceTemplate()->SetInternalFieldCount(1);
@@ -582,54 +589,54 @@ void InitHttpParser(Handle<Object> target) {
 
   target->Set(String::NewSymbol("HTTPParser"), t->GetFunction());
 
-  on_headers_sym          = NODE_PSYMBOL("onHeaders");
-  on_headers_complete_sym = NODE_PSYMBOL("onHeadersComplete");
-  on_body_sym             = NODE_PSYMBOL("onBody");
-  on_message_complete_sym = NODE_PSYMBOL("onMessageComplete");
+  statics->on_headers_sym          = NODE_PSYMBOL("onHeaders");
+  statics->on_headers_complete_sym = NODE_PSYMBOL("onHeadersComplete");
+  statics->on_body_sym             = NODE_PSYMBOL("onBody");
+  statics->on_message_complete_sym = NODE_PSYMBOL("onMessageComplete");
 
-  delete_sym = NODE_PSYMBOL("DELETE");
-  get_sym = NODE_PSYMBOL("GET");
-  head_sym = NODE_PSYMBOL("HEAD");
-  post_sym = NODE_PSYMBOL("POST");
-  put_sym = NODE_PSYMBOL("PUT");
-  connect_sym = NODE_PSYMBOL("CONNECT");
-  options_sym = NODE_PSYMBOL("OPTIONS");
-  trace_sym = NODE_PSYMBOL("TRACE");
-  patch_sym = NODE_PSYMBOL("PATCH");
-  copy_sym = NODE_PSYMBOL("COPY");
-  lock_sym = NODE_PSYMBOL("LOCK");
-  mkcol_sym = NODE_PSYMBOL("MKCOL");
-  move_sym = NODE_PSYMBOL("MOVE");
-  propfind_sym = NODE_PSYMBOL("PROPFIND");
-  proppatch_sym = NODE_PSYMBOL("PROPPATCH");
-  unlock_sym = NODE_PSYMBOL("UNLOCK");
-  report_sym = NODE_PSYMBOL("REPORT");
-  mkactivity_sym = NODE_PSYMBOL("MKACTIVITY");
-  checkout_sym = NODE_PSYMBOL("CHECKOUT");
-  merge_sym = NODE_PSYMBOL("MERGE");
-  msearch_sym = NODE_PSYMBOL("M-SEARCH");
-  notify_sym = NODE_PSYMBOL("NOTIFY");
-  subscribe_sym = NODE_PSYMBOL("SUBSCRIBE");
-  unsubscribe_sym = NODE_PSYMBOL("UNSUBSCRIBE");;
-  unknown_method_sym = NODE_PSYMBOL("UNKNOWN_METHOD");
+  statics->delete_sym = NODE_PSYMBOL("DELETE");
+  statics->get_sym = NODE_PSYMBOL("GET");
+  statics->head_sym = NODE_PSYMBOL("HEAD");
+  statics->post_sym = NODE_PSYMBOL("POST");
+  statics->put_sym = NODE_PSYMBOL("PUT");
+  statics->connect_sym = NODE_PSYMBOL("CONNECT");
+  statics->options_sym = NODE_PSYMBOL("OPTIONS");
+  statics->trace_sym = NODE_PSYMBOL("TRACE");
+  statics->patch_sym = NODE_PSYMBOL("PATCH");
+  statics->copy_sym = NODE_PSYMBOL("COPY");
+  statics->lock_sym = NODE_PSYMBOL("LOCK");
+  statics->mkcol_sym = NODE_PSYMBOL("MKCOL");
+  statics->move_sym = NODE_PSYMBOL("MOVE");
+  statics->propfind_sym = NODE_PSYMBOL("PROPFIND");
+  statics->proppatch_sym = NODE_PSYMBOL("PROPPATCH");
+  statics->unlock_sym = NODE_PSYMBOL("UNLOCK");
+  statics->report_sym = NODE_PSYMBOL("REPORT");
+  statics->mkactivity_sym = NODE_PSYMBOL("MKACTIVITY");
+  statics->checkout_sym = NODE_PSYMBOL("CHECKOUT");
+  statics->merge_sym = NODE_PSYMBOL("MERGE");
+  statics->msearch_sym = NODE_PSYMBOL("M-SEARCH");
+  statics->notify_sym = NODE_PSYMBOL("NOTIFY");
+  statics->subscribe_sym = NODE_PSYMBOL("SUBSCRIBE");
+  statics->unsubscribe_sym = NODE_PSYMBOL("UNSUBSCRIBE");;
+  statics->unknown_method_sym = NODE_PSYMBOL("UNKNOWN_METHOD");
 
-  method_sym = NODE_PSYMBOL("method");
-  status_code_sym = NODE_PSYMBOL("statusCode");
-  http_version_sym = NODE_PSYMBOL("httpVersion");
-  version_major_sym = NODE_PSYMBOL("versionMajor");
-  version_minor_sym = NODE_PSYMBOL("versionMinor");
-  should_keep_alive_sym = NODE_PSYMBOL("shouldKeepAlive");
-  upgrade_sym = NODE_PSYMBOL("upgrade");
-  headers_sym = NODE_PSYMBOL("headers");
-  url_sym = NODE_PSYMBOL("url");
+  statics->method_sym = NODE_PSYMBOL("method");
+  statics->status_code_sym = NODE_PSYMBOL("statusCode");
+  statics->http_version_sym = NODE_PSYMBOL("httpVersion");
+  statics->version_major_sym = NODE_PSYMBOL("versionMajor");
+  statics->version_minor_sym = NODE_PSYMBOL("versionMinor");
+  statics->should_keep_alive_sym = NODE_PSYMBOL("shouldKeepAlive");
+  statics->upgrade_sym = NODE_PSYMBOL("upgrade");
+  statics->headers_sym = NODE_PSYMBOL("headers");
+  statics->url_sym = NODE_PSYMBOL("url");
 
-  settings.on_message_begin    = Parser::on_message_begin;
-  settings.on_url              = Parser::on_url;
-  settings.on_header_field     = Parser::on_header_field;
-  settings.on_header_value     = Parser::on_header_value;
-  settings.on_headers_complete = Parser::on_headers_complete;
-  settings.on_body             = Parser::on_body;
-  settings.on_message_complete = Parser::on_message_complete;
+  statics->settings.on_message_begin    = Parser::on_message_begin;
+  statics->settings.on_url              = Parser::on_url;
+  statics->settings.on_header_field     = Parser::on_header_field;
+  statics->settings.on_header_value     = Parser::on_header_value;
+  statics->settings.on_headers_complete = Parser::on_headers_complete;
+  statics->settings.on_body             = Parser::on_body;
+  statics->settings.on_message_complete = Parser::on_message_complete;
 }
 
 }  // namespace node

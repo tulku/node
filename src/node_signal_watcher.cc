@@ -26,24 +26,28 @@ namespace node {
 
 using namespace v8;
 
-Persistent<FunctionTemplate> SignalWatcher::constructor_template;
-static Persistent<String> callback_symbol;
-
+class SignalWatcherStatics : public ModuleStatics {
+    Persistent<FunctionTemplate> constructor_template;
+    Persistent<String> callback_symbol;
+    friend class SignalWatcher;
+};
+    
 void SignalWatcher::Initialize(Handle<Object> target) {
   HandleScope scope;
+  NODE_STATICS_NEW(node_signal_watcher, SignalWatcherStatics, statics);
 
   Local<FunctionTemplate> t = FunctionTemplate::New(SignalWatcher::New);
-  constructor_template = Persistent<FunctionTemplate>::New(t);
-  constructor_template->InstanceTemplate()->SetInternalFieldCount(1);
-  constructor_template->SetClassName(String::NewSymbol("SignalWatcher"));
+  statics->constructor_template = Persistent<FunctionTemplate>::New(t);
+  statics->constructor_template->InstanceTemplate()->SetInternalFieldCount(1);
+  statics->constructor_template->SetClassName(String::NewSymbol("SignalWatcher"));
 
-  NODE_SET_PROTOTYPE_METHOD(constructor_template, "start", SignalWatcher::Start);
-  NODE_SET_PROTOTYPE_METHOD(constructor_template, "stop", SignalWatcher::Stop);
+  NODE_SET_PROTOTYPE_METHOD(statics->constructor_template, "start", SignalWatcher::Start);
+  NODE_SET_PROTOTYPE_METHOD(statics->constructor_template, "stop", SignalWatcher::Stop);
 
   target->Set(String::NewSymbol("SignalWatcher"),
-      constructor_template->GetFunction());
+      statics->constructor_template->GetFunction());
 
-  callback_symbol = NODE_PSYMBOL("callback");
+  statics->callback_symbol = NODE_PSYMBOL("callback");
 }
 
 void SignalWatcher::Callback(EV_P_ ev_signal *watcher, int revents) {
@@ -53,8 +57,9 @@ void SignalWatcher::Callback(EV_P_ ev_signal *watcher, int revents) {
   assert(revents == EV_SIGNAL);
 
   HandleScope scope;
+  SignalWatcherStatics *statics = NODE_STATICS_GET(node_signal_watcher, SignalWatcherStatics);
 
-  Local<Value> callback_v = w->handle_->Get(callback_symbol);
+  Local<Value> callback_v = w->handle_->Get(statics->callback_symbol);
   if (!callback_v->IsFunction()) {
     w->Stop();
     return;
@@ -72,8 +77,9 @@ void SignalWatcher::Callback(EV_P_ ev_signal *watcher, int revents) {
 }
 
 Handle<Value> SignalWatcher::New(const Arguments& args) {
+  SignalWatcherStatics *statics = NODE_STATICS_GET(node_signal_watcher, SignalWatcherStatics);
   if (!args.IsConstructCall()) {
-    return FromConstructorTemplate(constructor_template, args);
+    return FromConstructorTemplate(statics->constructor_template, args);
   }
 
   HandleScope scope;

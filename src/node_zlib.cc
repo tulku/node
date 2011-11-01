@@ -38,8 +38,11 @@ using namespace v8;
 
 // write() returns one of these, and then calls the cb() when it's done.
 typedef ReqWrap<uv_work_t> WorkReqWrap;
-
-static Persistent<String> callback_sym;
+    
+class ZlibStatics : public ModuleStatics {
+public:
+  Persistent<String> callback_sym;
+};
 
 enum node_zlib_mode {
   DEFLATE = 1,
@@ -178,13 +181,14 @@ template <node_zlib_mode mode> class ZCtx : public ObjectWrap {
   static void
   After(uv_work_t* work_req) {
     HandleScope scope;
+    ZlibStatics *statics = NODE_STATICS_GET(node_zlib, ZlibStatics);
     WorkReqWrap *req_wrap = reinterpret_cast<WorkReqWrap *>(work_req->data);
     ZCtx<mode> *ctx = (ZCtx<mode> *)req_wrap->data_;
     Local<Integer> avail_out = Integer::New(ctx->strm_.avail_out);
     Local<Integer> avail_in = Integer::New(ctx->strm_.avail_in);
 
     // call the write() cb
-    assert(req_wrap->object_->Get(callback_sym)->IsFunction() &&
+    assert(req_wrap->object_->Get(statics->callback_sym)->IsFunction() &&
            "Invalid callback");
     Local<Value> args[2] = { avail_in, avail_out };
     MakeCallback(req_wrap->object_, "callback", 2, args);
@@ -314,6 +318,7 @@ template <node_zlib_mode mode> class ZCtx : public ObjectWrap {
 
 void InitZlib(Handle<Object> target) {
   HandleScope scope;
+  NODE_STATICS_NEW(node_zlib, ZlibStatics, statics);
 
   NODE_ZLIB_CLASS(INFLATE, "Inflate")
   NODE_ZLIB_CLASS(DEFLATE, "Deflate")
@@ -323,7 +328,7 @@ void InitZlib(Handle<Object> target) {
   NODE_ZLIB_CLASS(GUNZIP, "Gunzip")
   NODE_ZLIB_CLASS(UNZIP, "Unzip")
 
-  callback_sym = NODE_PSYMBOL("callback");
+  statics->callback_sym = NODE_PSYMBOL("callback");
 
   NODE_DEFINE_CONSTANT(target, Z_NO_FLUSH);
   NODE_DEFINE_CONSTANT(target, Z_PARTIAL_FLUSH);

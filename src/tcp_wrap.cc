@@ -51,28 +51,31 @@ using v8::Arguments;
 using v8::Integer;
 using v8::Undefined;
 
-static Persistent<Function> tcpConstructor;
-static Persistent<String> family_symbol;
-static Persistent<String> address_symbol;
-static Persistent<String> port_symbol;
-
-
 typedef class ReqWrap<uv_connect_t> ConnectWrap;
 
+class TCPStatics : public ModuleStatics {
+    v8::Persistent<v8::Function> tcpConstructor;
+    v8::Persistent<v8::String> family_symbol;
+    v8::Persistent<v8::String> address_symbol;
+    v8::Persistent<v8::String> port_symbol;
+    friend class TCPWrap;
+};
 
 Local<Object> TCPWrap::Instantiate() {
   // If this assert fire then process.binding('tcp_wrap') hasn't been
   // called yet.
-  assert(tcpConstructor.IsEmpty() == false);
+  TCPStatics *statics = NODE_STATICS_GET(node_tcp_wrap, TCPStatics);
+  assert(statics->tcpConstructor.IsEmpty() == false);
 
   HandleScope scope;
-  Local<Object> obj = tcpConstructor->NewInstance();
+  Local<Object> obj = statics->tcpConstructor->NewInstance();
 
   return scope.Close(obj);
 }
 
 
 void TCPWrap::Initialize(Handle<Object> target) {
+  NODE_STATICS_NEW(node_tcp_wrap, TCPStatics, statics);
   HandleWrap::Initialize(target);
   StreamWrap::Initialize(target);
 
@@ -100,13 +103,13 @@ void TCPWrap::Initialize(Handle<Object> target) {
   NODE_SET_PROTOTYPE_METHOD(t, "setNoDelay", SetNoDelay);
   NODE_SET_PROTOTYPE_METHOD(t, "setKeepAlive", SetKeepAlive);
 
-  tcpConstructor = Persistent<Function>::New(t->GetFunction());
+  statics->tcpConstructor = Persistent<Function>::New(t->GetFunction());
 
-  family_symbol = NODE_PSYMBOL("family");
-  address_symbol = NODE_PSYMBOL("address");
-  port_symbol = NODE_PSYMBOL("port");
+  statics->family_symbol = NODE_PSYMBOL("family");
+  statics->address_symbol = NODE_PSYMBOL("address");
+  statics->port_symbol = NODE_PSYMBOL("port");
 
-  target->Set(String::NewSymbol("TCP"), tcpConstructor);
+  target->Set(String::NewSymbol("TCP"), statics->tcpConstructor);
 }
 
 
@@ -140,6 +143,7 @@ TCPWrap::~TCPWrap() {
 
 Handle<Value> TCPWrap::GetSockName(const Arguments& args) {
   HandleScope scope;
+  TCPStatics *statics = NODE_STATICS_GET(node_tcp_wrap, TCPStatics);
   struct sockaddr_storage address;
   int family;
   int port;
@@ -171,9 +175,9 @@ Handle<Value> TCPWrap::GetSockName(const Arguments& args) {
       abort();
     }
 
-    sockname->Set(port_symbol, Integer::New(port));
-    sockname->Set(family_symbol, Integer::New(family));
-    sockname->Set(address_symbol, String::New(ip));
+    sockname->Set(statics->port_symbol, Integer::New(port));
+    sockname->Set(statics->family_symbol, Integer::New(family));
+    sockname->Set(statics->address_symbol, String::New(ip));
   }
 
   return scope.Close(sockname);
@@ -182,6 +186,7 @@ Handle<Value> TCPWrap::GetSockName(const Arguments& args) {
 
 Handle<Value> TCPWrap::GetPeerName(const Arguments& args) {
   HandleScope scope;
+  TCPStatics *statics = NODE_STATICS_GET(node_tcp_wrap, TCPStatics);
   struct sockaddr_storage address;
   int family;
   int port;
@@ -213,9 +218,9 @@ Handle<Value> TCPWrap::GetPeerName(const Arguments& args) {
       abort();
     }
 
-    sockname->Set(port_symbol, Integer::New(port));
-    sockname->Set(family_symbol, Integer::New(family));
-    sockname->Set(address_symbol, String::New(ip));
+    sockname->Set(statics->port_symbol, Integer::New(port));
+    sockname->Set(statics->family_symbol, Integer::New(family));
+    sockname->Set(statics->address_symbol, String::New(ip));
   }
 
   return scope.Close(sockname);

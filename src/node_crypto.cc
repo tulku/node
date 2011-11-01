@@ -23,6 +23,7 @@
 #include <v8.h>
 
 #include <node.h>
+#include <node_statics.h>
 #include <node_buffer.h>
 #include <node_root_certs.h>
 
@@ -59,28 +60,31 @@ namespace node {
 namespace crypto {
 
 using namespace v8;
-
-static Persistent<String> errno_symbol;
-static Persistent<String> syscall_symbol;
-static Persistent<String> subject_symbol;
-static Persistent<String> subjectaltname_symbol;
-static Persistent<String> modulus_symbol;
-static Persistent<String> exponent_symbol;
-static Persistent<String> issuer_symbol;
-static Persistent<String> valid_from_symbol;
-static Persistent<String> valid_to_symbol;
-static Persistent<String> fingerprint_symbol;
-static Persistent<String> name_symbol;
-static Persistent<String> version_symbol;
-static Persistent<String> ext_key_usage_symbol;
-
-static Persistent<FunctionTemplate> secure_context_constructor;
+    
+class CryptoStatics : public ModuleStatics {
+public:
+    Persistent<String> errno_symbol;
+    Persistent<String> syscall_symbol;
+    Persistent<String> subject_symbol;
+    Persistent<String> subjectaltname_symbol;
+    Persistent<String> modulus_symbol;
+    Persistent<String> exponent_symbol;
+    Persistent<String> issuer_symbol;
+    Persistent<String> valid_from_symbol;
+    Persistent<String> valid_to_symbol;
+    Persistent<String> fingerprint_symbol;
+    Persistent<String> name_symbol;
+    Persistent<String> version_symbol;
+    Persistent<String> ext_key_usage_symbol;
+    Persistent<FunctionTemplate> secure_context_constructor;
+};
 
 void SecureContext::Initialize(Handle<Object> target) {
   HandleScope scope;
+  NODE_STATICS_NEW(node_crypto, CryptoStatics, statics);
 
   Local<FunctionTemplate> t = FunctionTemplate::New(SecureContext::New);
-  secure_context_constructor = Persistent<FunctionTemplate>::New(t);
+  statics->secure_context_constructor = Persistent<FunctionTemplate>::New(t);
 
   t->InstanceTemplate()->SetInternalFieldCount(1);
   t->SetClassName(String::NewSymbol("SecureContext"));
@@ -812,7 +816,8 @@ int Connection::SelectSNIContextCallback_(SSL *s, int *ad, void* arg) {
       }
 
       // If ret is SecureContext
-      if (secure_context_constructor->HasInstance(ret)) {
+      CryptoStatics *statics = NODE_STATICS_GET(node_crypto, CryptoStatics);
+      if (statics->secure_context_constructor->HasInstance(ret)) {
         p->sniContext_ = Persistent<Value>::New(ret);
         SecureContext *sc = ObjectWrap::Unwrap<SecureContext>(
                                 Local<Object>::Cast(ret));
@@ -1117,6 +1122,7 @@ Handle<Value> Connection::ClearIn(const Arguments& args) {
 
 Handle<Value> Connection::GetPeerCertificate(const Arguments& args) {
   HandleScope scope;
+  CryptoStatics *statics = NODE_STATICS_GET(node_crypto, CryptoStatics);
 
   Connection *ss = Connection::Unwrap(args);
 
@@ -1129,14 +1135,14 @@ Handle<Value> Connection::GetPeerCertificate(const Arguments& args) {
     if (X509_NAME_print_ex(bio, X509_get_subject_name(peer_cert), 0,
                            X509_NAME_FLAGS) > 0) {
       BIO_get_mem_ptr(bio, &mem);
-      info->Set(subject_symbol, String::New(mem->data, mem->length));
+      info->Set(statics->subject_symbol, String::New(mem->data, mem->length));
     }
     (void) BIO_reset(bio);
 
     if (X509_NAME_print_ex(bio, X509_get_issuer_name(peer_cert), 0,
                            X509_NAME_FLAGS) > 0) {
       BIO_get_mem_ptr(bio, &mem);
-      info->Set(issuer_symbol, String::New(mem->data, mem->length));
+      info->Set(statics->issuer_symbol, String::New(mem->data, mem->length));
     }
     (void) BIO_reset(bio);
 
@@ -1152,7 +1158,7 @@ Handle<Value> Connection::GetPeerCertificate(const Arguments& args) {
       assert(rv == 1);
 
       BIO_get_mem_ptr(bio, &mem);
-      info->Set(subjectaltname_symbol, String::New(mem->data, mem->length));
+      info->Set(statics->subjectaltname_symbol, String::New(mem->data, mem->length));
 
       (void) BIO_reset(bio);
     }
@@ -1163,23 +1169,23 @@ Handle<Value> Connection::GetPeerCertificate(const Arguments& args) {
         && NULL != (rsa = EVP_PKEY_get1_RSA(pkey)) ) {
         BN_print(bio, rsa->n);
         BIO_get_mem_ptr(bio, &mem);
-        info->Set(modulus_symbol, String::New(mem->data, mem->length) );
+        info->Set(statics->modulus_symbol, String::New(mem->data, mem->length) );
         (void) BIO_reset(bio);
 
         BN_print(bio, rsa->e);
         BIO_get_mem_ptr(bio, &mem);
-        info->Set(exponent_symbol, String::New(mem->data, mem->length) );
+        info->Set(statics->exponent_symbol, String::New(mem->data, mem->length) );
         (void) BIO_reset(bio);
     }
 
     ASN1_TIME_print(bio, X509_get_notBefore(peer_cert));
     BIO_get_mem_ptr(bio, &mem);
-    info->Set(valid_from_symbol, String::New(mem->data, mem->length));
+    info->Set(statics->valid_from_symbol, String::New(mem->data, mem->length));
     (void) BIO_reset(bio);
 
     ASN1_TIME_print(bio, X509_get_notAfter(peer_cert));
     BIO_get_mem_ptr(bio, &mem);
-    info->Set(valid_to_symbol, String::New(mem->data, mem->length));
+    info->Set(statics->valid_to_symbol, String::New(mem->data, mem->length));
     BIO_free(bio);
 
     unsigned int md_size, i;
@@ -1201,7 +1207,7 @@ Handle<Value> Connection::GetPeerCertificate(const Arguments& args) {
         fingerprint[0] = '\0';
       }
 
-      info->Set(fingerprint_symbol, String::New(fingerprint));
+      info->Set(statics->fingerprint_symbol, String::New(fingerprint));
     }
 
     STACK_OF(ASN1_OBJECT) *eku = (STACK_OF(ASN1_OBJECT) *)X509_get_ext_d2i(
@@ -1217,7 +1223,7 @@ Handle<Value> Connection::GetPeerCertificate(const Arguments& args) {
       }
 
       sk_ASN1_OBJECT_pop_free(eku, ASN1_OBJECT_free);
-      info->Set(ext_key_usage_symbol, ext_key_usage);
+      info->Set(statics->ext_key_usage_symbol, ext_key_usage);
     }
 
     X509_free(peer_cert);
@@ -1509,6 +1515,7 @@ Handle<Value> Connection::VerifyError(const Arguments& args) {
 
 Handle<Value> Connection::GetCurrentCipher(const Arguments& args) {
   HandleScope scope;
+  CryptoStatics *statics = NODE_STATICS_GET(node_crypto, CryptoStatics);
 
   Connection *ss = Connection::Unwrap(args);
 
@@ -1519,9 +1526,9 @@ Handle<Value> Connection::GetCurrentCipher(const Arguments& args) {
   if ( c == NULL ) return Undefined();
   Local<Object> info = Object::New();
   const char *cipher_name = SSL_CIPHER_get_name(c);
-  info->Set(name_symbol, String::New(cipher_name));
+  info->Set(statics->name_symbol, String::New(cipher_name));
   const char *cipher_version = SSL_CIPHER_get_version(c);
-  info->Set(version_symbol, String::New(cipher_version));
+  info->Set(statics->version_symbol, String::New(cipher_version));
   return scope.Close(info);
 }
 
@@ -4182,6 +4189,7 @@ Handle<Value> RandomBytes(const Arguments& args) {
 
 void InitCrypto(Handle<Object> target) {
   HandleScope scope;
+  CryptoStatics *statics = NODE_STATICS_GET(node_crypto, CryptoStatics);
 
   SSL_library_init();
   OpenSSL_add_all_algorithms();
@@ -4216,17 +4224,17 @@ void InitCrypto(Handle<Object> target) {
   NODE_SET_METHOD(target, "randomBytes", RandomBytes<RAND_bytes>);
   NODE_SET_METHOD(target, "pseudoRandomBytes", RandomBytes<RAND_pseudo_bytes>);
 
-  subject_symbol    = NODE_PSYMBOL("subject");
-  issuer_symbol     = NODE_PSYMBOL("issuer");
-  valid_from_symbol = NODE_PSYMBOL("valid_from");
-  valid_to_symbol   = NODE_PSYMBOL("valid_to");
-  subjectaltname_symbol = NODE_PSYMBOL("subjectaltname");
-  modulus_symbol        = NODE_PSYMBOL("modulus");
-  exponent_symbol       = NODE_PSYMBOL("exponent");
-  fingerprint_symbol   = NODE_PSYMBOL("fingerprint");
-  name_symbol       = NODE_PSYMBOL("name");
-  version_symbol    = NODE_PSYMBOL("version");
-  ext_key_usage_symbol = NODE_PSYMBOL("ext_key_usage");
+  statics->subject_symbol    = NODE_PSYMBOL("subject");
+  statics->issuer_symbol     = NODE_PSYMBOL("issuer");
+  statics->valid_from_symbol = NODE_PSYMBOL("valid_from");
+  statics->valid_to_symbol   = NODE_PSYMBOL("valid_to");
+  statics->subjectaltname_symbol = NODE_PSYMBOL("subjectaltname");
+  statics->modulus_symbol        = NODE_PSYMBOL("modulus");
+  statics->exponent_symbol       = NODE_PSYMBOL("exponent");
+  statics->fingerprint_symbol   = NODE_PSYMBOL("fingerprint");
+  statics->name_symbol       = NODE_PSYMBOL("name");
+  statics->version_symbol    = NODE_PSYMBOL("version");
+  statics->ext_key_usage_symbol = NODE_PSYMBOL("ext_key_usage");
 }
 
 }  // namespace crypto

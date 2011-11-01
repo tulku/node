@@ -22,6 +22,7 @@
 #include <node_io_watcher.h>
 
 #include <node.h>
+#include <node_statics.h>
 #include <v8.h>
 
 #include <assert.h>
@@ -29,26 +30,29 @@
 namespace node {
 
 using namespace v8;
-
-Persistent<FunctionTemplate> IOWatcher::constructor_template;
-Persistent<String> callback_symbol;
-
+    
+class IOWatcherStatics : public ModuleStatics {
+    Persistent<FunctionTemplate> constructor_template;
+    Persistent<String> callback_symbol;
+    friend class IOWatcher;
+};
 
 void IOWatcher::Initialize(Handle<Object> target) {
   HandleScope scope;
+  NODE_STATICS_NEW(node_io_watcher, IOWatcherStatics, statics);
 
   Local<FunctionTemplate> t = FunctionTemplate::New(IOWatcher::New);
-  constructor_template = Persistent<FunctionTemplate>::New(t);
-  constructor_template->InstanceTemplate()->SetInternalFieldCount(1);
-  constructor_template->SetClassName(String::NewSymbol("IOWatcher"));
+  statics->constructor_template = Persistent<FunctionTemplate>::New(t);
+  statics->constructor_template->InstanceTemplate()->SetInternalFieldCount(1);
+  statics->constructor_template->SetClassName(String::NewSymbol("IOWatcher"));
 
-  NODE_SET_PROTOTYPE_METHOD(constructor_template, "start", IOWatcher::Start);
-  NODE_SET_PROTOTYPE_METHOD(constructor_template, "stop", IOWatcher::Stop);
-  NODE_SET_PROTOTYPE_METHOD(constructor_template, "set", IOWatcher::Set);
+  NODE_SET_PROTOTYPE_METHOD(statics->constructor_template, "start", IOWatcher::Start);
+  NODE_SET_PROTOTYPE_METHOD(statics->constructor_template, "stop", IOWatcher::Stop);
+  NODE_SET_PROTOTYPE_METHOD(statics->constructor_template, "set", IOWatcher::Set);
 
-  target->Set(String::NewSymbol("IOWatcher"), constructor_template->GetFunction());
+  target->Set(String::NewSymbol("IOWatcher"), statics->constructor_template->GetFunction());
 
-  callback_symbol = NODE_PSYMBOL("callback");
+  statics->callback_symbol = NODE_PSYMBOL("callback");
 }
 
 
@@ -56,8 +60,9 @@ void IOWatcher::Callback(EV_P_ ev_io *w, int revents) {
   IOWatcher *io = static_cast<IOWatcher*>(w->data);
   assert(w == &io->watcher_);
   HandleScope scope;
+  IOWatcherStatics *statics = NODE_STATICS_GET(node_io_watcher, IOWatcherStatics);
 
-  Local<Value> callback_v = io->handle_->Get(callback_symbol);
+  Local<Value> callback_v = io->handle_->Get(statics->callback_symbol);
   if (!callback_v->IsFunction()) {
     io->Stop();
     return;
@@ -87,7 +92,8 @@ void IOWatcher::Callback(EV_P_ ev_io *w, int revents) {
 //
 Handle<Value> IOWatcher::New(const Arguments& args) {
   if (!args.IsConstructCall()) {
-    return FromConstructorTemplate(constructor_template, args);
+    IOWatcherStatics *statics = NODE_STATICS_GET(node_io_watcher, IOWatcherStatics);
+    return FromConstructorTemplate(statics->constructor_template, args);
   }
 
   HandleScope scope;

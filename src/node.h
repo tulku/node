@@ -43,6 +43,7 @@
 #include <sys/types.h> /* struct stat */
 #include <sys/stat.h>
 
+#include <node_statics.h>
 #include <node_object_wrap.h>
 
 #include <limits.h> /* PATH_MAX */
@@ -97,6 +98,7 @@ public:
     void __FatalException(v8::TryCatch &try_catch);
     void __SetErrno(uv_err_t err);
     uv_loop_t *Loop();
+    ext_statics statics_;
 
     Isolate();
     ~Isolate();
@@ -304,7 +306,7 @@ struct node_module_struct {
   const char *modname;
 };
 
-node_module_struct* get_builtin_module(const char *name);
+node_module_struct* get_builtin_module(const char *name, int *idx=0);
 
 /**
  * When this version number is changed, node.js will refuse

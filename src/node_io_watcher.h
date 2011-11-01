@@ -27,14 +27,12 @@
 #include <uv-private/ev.h>
 
 namespace node {
-
+    
 class IOWatcher : ObjectWrap {
  public:
   static void Initialize(v8::Handle<v8::Object> target);
 
  protected:
-  static v8::Persistent<v8::FunctionTemplate> constructor_template;
-
   IOWatcher() : ObjectWrap() {
     ev_init(&watcher_, IOWatcher::Callback);
     watcher_.data = this;

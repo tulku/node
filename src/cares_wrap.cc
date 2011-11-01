@@ -21,6 +21,7 @@
 
 #include <assert.h>
 #include <node.h>
+#include <node_statics.h>
 #include <req_wrap.h>
 #include <uv.h>
 
@@ -66,13 +67,13 @@ using v8::Persistent;
 using v8::String;
 using v8::Value;
 
+class CaresWrapStatics : public ModuleStatics {
+public:
+    Persistent<String> oncomplete_sym;
+    struct ares_channeldata *ares_channel;
+};
 
 typedef class ReqWrap<uv_getaddrinfo_t> GetAddrInfoReqWrap;
-
-static Persistent<String> oncomplete_sym;
-
-static ares_channel ares_channel;
-
 
 static Local<Array> HostentToAddresses(struct hostent* host) {
   HandleScope scope;
@@ -157,8 +158,8 @@ class QueryWrap {
 
   virtual ~QueryWrap() {
     assert(!object_.IsEmpty());
-
-    object_->Delete(oncomplete_sym);
+    CaresWrapStatics *statics = NODE_STATICS_GET(node_cares_wrap, CaresWrapStatics);
+    object_->Delete(statics->oncomplete_sym);
 
     object_.Dispose();
     object_.Clear();
@@ -170,7 +171,8 @@ class QueryWrap {
 
   void SetOnComplete(Handle<Value> oncomplete) {
     assert(oncomplete->IsFunction());
-    object_->Set(oncomplete_sym, oncomplete);
+    CaresWrapStatics *statics = NODE_STATICS_GET(node_cares_wrap, CaresWrapStatics);
+    object_->Set(statics->oncomplete_sym, oncomplete);
   }
 
   // Subclasses should implement the appropriate Send method.
@@ -253,7 +255,8 @@ class QueryWrap {
 class QueryAWrap: public QueryWrap {
  public:
   int Send(const char* name) {
-    ares_query(ares_channel, name, ns_c_in, ns_t_a, Callback, GetQueryArg());
+    CaresWrapStatics *statics = NODE_STATICS_GET(node_cares_wrap, CaresWrapStatics);
+    ares_query(statics->ares_channel, name, ns_c_in, ns_t_a, Callback, GetQueryArg());
     return 0;
   }
 
@@ -280,7 +283,8 @@ class QueryAWrap: public QueryWrap {
 class QueryAaaaWrap: public QueryWrap {
  public:
   int Send(const char* name) {
-    ares_query(ares_channel,
+    CaresWrapStatics *statics = NODE_STATICS_GET(node_cares_wrap, CaresWrapStatics);
+    ares_query(statics->ares_channel,
                name,
                ns_c_in,
                ns_t_aaaa,
@@ -312,7 +316,8 @@ class QueryAaaaWrap: public QueryWrap {
 class QueryCnameWrap: public QueryWrap {
  public:
   int Send(const char* name) {
-    ares_query(ares_channel,
+    CaresWrapStatics *statics = NODE_STATICS_GET(node_cares_wrap, CaresWrapStatics);
+    ares_query(statics->ares_channel,
                name,
                ns_c_in,
                ns_t_cname,
@@ -347,7 +352,8 @@ class QueryCnameWrap: public QueryWrap {
 class QueryMxWrap: public QueryWrap {
  public:
   int Send(const char* name) {
-    ares_query(ares_channel, name, ns_c_in, ns_t_mx, Callback, GetQueryArg());
+    CaresWrapStatics *statics = NODE_STATICS_GET(node_cares_wrap, CaresWrapStatics);
+    ares_query(statics->ares_channel, name, ns_c_in, ns_t_mx, Callback, GetQueryArg());
     return 0;
   }
 
@@ -385,7 +391,8 @@ class QueryMxWrap: public QueryWrap {
 class QueryNsWrap: public QueryWrap {
  public:
   int Send(const char* name) {
-    ares_query(ares_channel, name, ns_c_in, ns_t_ns, Callback, GetQueryArg());
+    CaresWrapStatics *statics = NODE_STATICS_GET(node_cares_wrap, CaresWrapStatics);
+    ares_query(statics->ares_channel, name, ns_c_in, ns_t_ns, Callback, GetQueryArg());
     return 0;
   }
 
@@ -410,7 +417,8 @@ class QueryNsWrap: public QueryWrap {
 class QueryTxtWrap: public QueryWrap {
  public:
   int Send(const char* name) {
-    ares_query(ares_channel, name, ns_c_in, ns_t_txt, Callback, GetQueryArg());
+    CaresWrapStatics *statics = NODE_STATICS_GET(node_cares_wrap, CaresWrapStatics);
+    ares_query(statics->ares_channel, name, ns_c_in, ns_t_txt, Callback, GetQueryArg());
     return 0;
   }
 
@@ -442,7 +450,8 @@ class QueryTxtWrap: public QueryWrap {
 class QuerySrvWrap: public QueryWrap {
  public:
   int Send(const char* name) {
-    ares_query(ares_channel,
+    CaresWrapStatics *statics = NODE_STATICS_GET(node_cares_wrap, CaresWrapStatics);
+    ares_query(statics->ares_channel,
                name,
                ns_c_in,
                ns_t_srv,
@@ -502,7 +511,8 @@ class GetHostByAddrWrap: public QueryWrap {
       return ARES_ENOTIMP;
     }
 
-    ares_gethostbyaddr(ares_channel,
+    CaresWrapStatics *statics = NODE_STATICS_GET(node_cares_wrap, CaresWrapStatics);
+    ares_gethostbyaddr(statics->ares_channel,
                        address_buffer,
                        length,
                        family,
@@ -523,7 +533,8 @@ class GetHostByAddrWrap: public QueryWrap {
 class GetHostByNameWrap: public QueryWrap {
  public:
   int Send(const char* name, int family) {
-    ares_gethostbyname(ares_channel, name, family, Callback, GetQueryArg());
+    CaresWrapStatics *statics = NODE_STATICS_GET(node_cares_wrap, CaresWrapStatics);
+    ares_gethostbyname(statics->ares_channel, name, family, Callback, GetQueryArg());
     return 0;
   }
 
@@ -715,7 +726,8 @@ static void Initialize(Handle<Object> target) {
   assert(r == ARES_SUCCESS);
 
   struct ares_options options;
-  uv_ares_init_options(Isolate::GetCurrentLoop(), &ares_channel, &options, 0);
+  NODE_STATICS_NEW(node_cares_wrap, CaresWrapStatics, statics); 
+  uv_ares_init_options(Isolate::GetCurrentLoop(), &statics->ares_channel, &options, 0);
   assert(r == 0);
 
   NODE_SET_METHOD(target, "queryA", Query<QueryAWrap>);
@@ -734,7 +746,7 @@ static void Initialize(Handle<Object> target) {
   target->Set(String::NewSymbol("AF_INET6"), Integer::New(AF_INET6));
   target->Set(String::NewSymbol("AF_UNSPEC"), Integer::New(AF_UNSPEC));
 
-  oncomplete_sym = Persistent<String>::New(String::NewSymbol("oncomplete"));
+  statics->oncomplete_sym = Persistent<String>::New(String::NewSymbol("oncomplete"));
 }
 
 

@@ -51,10 +51,31 @@ using namespace v8;
 
 typedef class ReqWrap<uv_fs_t> FSReqWrap;
 
-static Persistent<String> encoding_symbol;
-static Persistent<String> errno_symbol;
-static Persistent<String> buf_symbol;
-static Persistent<String> oncomplete_sym;
+class FileStatics : public ModuleStatics {
+public:
+    Persistent<String> encoding_symbol;
+    Persistent<String> errno_symbol;
+    Persistent<String> buf_symbol;
+    Persistent<String> oncomplete_sym;
+    Persistent<String> syscall_symbol;
+    Persistent<String> errpath_symbol;
+    Persistent<String> code_symbol;
+    Persistent<FunctionTemplate> stats_constructor_template;
+    Persistent<String> dev_symbol;
+    Persistent<String> ino_symbol;
+    Persistent<String> mode_symbol;
+    Persistent<String> nlink_symbol;
+    Persistent<String> uid_symbol;
+    Persistent<String> gid_symbol;
+    Persistent<String> rdev_symbol;
+    Persistent<String> size_symbol;
+    Persistent<String> blksize_symbol;
+    Persistent<String> blocks_symbol;
+    Persistent<String> atime_symbol;
+    Persistent<String> mtime_symbol;
+    Persistent<String> ctime_symbol;
+};
+
 
 Local<Value> FSError(int errorno,
                      const char *syscall = NULL,
@@ -71,10 +92,11 @@ static inline int IsInt64(double x) {
 
 static void After(uv_fs_t *req) {
   HandleScope scope;
+  FileStatics *statics = NODE_STATICS_GET(node_fs, FileStatics);
 
   FSReqWrap* req_wrap = (FSReqWrap*) req->data;
   assert(&req_wrap->req_ == req);
-  Local<Value> callback_v = req_wrap->object_->Get(oncomplete_sym);
+  Local<Value> callback_v = req_wrap->object_->Get(statics->oncomplete_sym);
   assert(callback_v->IsFunction());
   Local<Function> callback = Local<Function>::Cast(callback_v);
 
@@ -231,15 +253,13 @@ Local<Value> FSError(int errorno,
                      const char *syscall,
                      const char *msg,
                      const char *path) {
-  static Persistent<String> syscall_symbol;
-  static Persistent<String> errpath_symbol;
-  static Persistent<String> code_symbol;
 
-  if (syscall_symbol.IsEmpty()) {
-    syscall_symbol = NODE_PSYMBOL("syscall");
-    errno_symbol = NODE_PSYMBOL("errno");
-    errpath_symbol = NODE_PSYMBOL("path");
-    code_symbol = NODE_PSYMBOL("code");
+  FileStatics *statics = NODE_STATICS_GET(node_fs, FileStatics);
+  if (statics->syscall_symbol.IsEmpty()) {
+    statics->syscall_symbol = NODE_PSYMBOL("syscall");
+    statics->errno_symbol = NODE_PSYMBOL("errno");
+    statics->errpath_symbol = NODE_PSYMBOL("path");
+    statics->code_symbol = NODE_PSYMBOL("code");
   }
 
   if (!msg || !msg[0])
@@ -264,10 +284,10 @@ Local<Value> FSError(int errorno,
   Local<Object> obj = e->ToObject();
 
   // TODO errno should probably go
-  obj->Set(errno_symbol, Integer::New(errorno));
-  obj->Set(code_symbol, estring);
-  if (path) obj->Set(errpath_symbol, String::New(path));
-  if (syscall) obj->Set(syscall_symbol, String::NewSymbol(syscall));
+  obj->Set(statics->errno_symbol, Integer::New(errorno));
+  obj->Set(statics->code_symbol, estring);
+  if (path) obj->Set(statics->errpath_symbol, String::New(path));
+  if (syscall) obj->Set(statics->syscall_symbol, String::NewSymbol(syscall));
   return e;
 }
 
@@ -277,7 +297,7 @@ Local<Value> FSError(int errorno,
   int r = uv_fs_##func(Isolate::GetCurrentLoop(), &req_wrap->req_, \
       __VA_ARGS__, After);                                         \
   assert(r == 0);                                                  \
-  req_wrap->object_->Set(oncomplete_sym, callback);                \
+  req_wrap->object_->Set(statics->oncomplete_sym, callback);                \
   req_wrap->Dispatched();                                          \
   return scope.Close(req_wrap->object_);
 
@@ -297,6 +317,8 @@ Local<Value> FSError(int errorno,
 
 static Handle<Value> Close(const Arguments& args) {
   HandleScope scope;
+  FileStatics *statics = NODE_STATICS_GET(node_fs, FileStatics);
+    
 
   if (args.Length() < 1 || !args[0]->IsInt32()) {
     return THROW_BAD_ARGS;
@@ -312,91 +334,76 @@ static Handle<Value> Close(const Arguments& args) {
   }
 }
 
-
-static Persistent<FunctionTemplate> stats_constructor_template;
-
-static Persistent<String> dev_symbol;
-static Persistent<String> ino_symbol;
-static Persistent<String> mode_symbol;
-static Persistent<String> nlink_symbol;
-static Persistent<String> uid_symbol;
-static Persistent<String> gid_symbol;
-static Persistent<String> rdev_symbol;
-static Persistent<String> size_symbol;
-static Persistent<String> blksize_symbol;
-static Persistent<String> blocks_symbol;
-static Persistent<String> atime_symbol;
-static Persistent<String> mtime_symbol;
-static Persistent<String> ctime_symbol;
-
 Local<Object> BuildStatsObject(NODE_STAT_STRUCT *s) {
   HandleScope scope;
+  FileStatics *statics = NODE_STATICS_GET(node_fs, FileStatics);
 
-  if (dev_symbol.IsEmpty()) {
-    dev_symbol = NODE_PSYMBOL("dev");
-    ino_symbol = NODE_PSYMBOL("ino");
-    mode_symbol = NODE_PSYMBOL("mode");
-    nlink_symbol = NODE_PSYMBOL("nlink");
-    uid_symbol = NODE_PSYMBOL("uid");
-    gid_symbol = NODE_PSYMBOL("gid");
-    rdev_symbol = NODE_PSYMBOL("rdev");
-    size_symbol = NODE_PSYMBOL("size");
-    blksize_symbol = NODE_PSYMBOL("blksize");
-    blocks_symbol = NODE_PSYMBOL("blocks");
-    atime_symbol = NODE_PSYMBOL("atime");
-    mtime_symbol = NODE_PSYMBOL("mtime");
-    ctime_symbol = NODE_PSYMBOL("ctime");
+  if (statics->dev_symbol.IsEmpty()) {
+    statics->dev_symbol = NODE_PSYMBOL("dev");
+    statics->ino_symbol = NODE_PSYMBOL("ino");
+    statics->mode_symbol = NODE_PSYMBOL("mode");
+    statics->nlink_symbol = NODE_PSYMBOL("nlink");
+    statics->uid_symbol = NODE_PSYMBOL("uid");
+    statics->gid_symbol = NODE_PSYMBOL("gid");
+    statics->rdev_symbol = NODE_PSYMBOL("rdev");
+    statics->size_symbol = NODE_PSYMBOL("size");
+    statics->blksize_symbol = NODE_PSYMBOL("blksize");
+    statics->blocks_symbol = NODE_PSYMBOL("blocks");
+    statics->atime_symbol = NODE_PSYMBOL("atime");
+    statics->mtime_symbol = NODE_PSYMBOL("mtime");
+    statics->ctime_symbol = NODE_PSYMBOL("ctime");
   }
 
   Local<Object> stats =
-    stats_constructor_template->GetFunction()->NewInstance();
+    statics->stats_constructor_template->GetFunction()->NewInstance();
 
   /* ID of device containing file */
-  stats->Set(dev_symbol, Integer::New(s->st_dev));
+  stats->Set(statics->dev_symbol, Integer::New(s->st_dev));
 
   /* inode number */
-  stats->Set(ino_symbol, Integer::New(s->st_ino));
+  stats->Set(statics->ino_symbol, Integer::New(s->st_ino));
 
   /* protection */
-  stats->Set(mode_symbol, Integer::New(s->st_mode));
+  stats->Set(statics->mode_symbol, Integer::New(s->st_mode));
 
   /* number of hard links */
-  stats->Set(nlink_symbol, Integer::New(s->st_nlink));
+  stats->Set(statics->nlink_symbol, Integer::New(s->st_nlink));
 
   /* user ID of owner */
-  stats->Set(uid_symbol, Integer::New(s->st_uid));
+  stats->Set(statics->uid_symbol, Integer::New(s->st_uid));
 
   /* group ID of owner */
-  stats->Set(gid_symbol, Integer::New(s->st_gid));
+  stats->Set(statics->gid_symbol, Integer::New(s->st_gid));
 
   /* device ID (if special file) */
-  stats->Set(rdev_symbol, Integer::New(s->st_rdev));
+  stats->Set(statics->rdev_symbol, Integer::New(s->st_rdev));
 
   /* total size, in bytes */
-  stats->Set(size_symbol, Number::New(s->st_size));
+  stats->Set(statics->size_symbol, Number::New(s->st_size));
 
 #ifdef __POSIX__
   /* blocksize for filesystem I/O */
-  stats->Set(blksize_symbol, Integer::New(s->st_blksize));
+  stats->Set(statics->blksize_symbol, Integer::New(s->st_blksize));
 
   /* number of blocks allocated */
-  stats->Set(blocks_symbol, Integer::New(s->st_blocks));
+  stats->Set(statics->blocks_symbol, Integer::New(s->st_blocks));
 #endif
 
   /* time of last access */
-  stats->Set(atime_symbol, NODE_UNIXTIME_V8(s->st_atime));
+  stats->Set(statics->atime_symbol, NODE_UNIXTIME_V8(s->st_atime));
 
   /* time of last modification */
-  stats->Set(mtime_symbol, NODE_UNIXTIME_V8(s->st_mtime));
+  stats->Set(statics->mtime_symbol, NODE_UNIXTIME_V8(s->st_mtime));
 
   /* time of last status change */
-  stats->Set(ctime_symbol, NODE_UNIXTIME_V8(s->st_ctime));
+  stats->Set(statics->ctime_symbol, NODE_UNIXTIME_V8(s->st_ctime));
 
   return scope.Close(stats);
 }
 
 static Handle<Value> Stat(const Arguments& args) {
   HandleScope scope;
+  FileStatics *statics = NODE_STATICS_GET(node_fs, FileStatics);
 
   if (args.Length() < 1 || !args[0]->IsString()) {
     return THROW_BAD_ARGS;
@@ -414,6 +421,7 @@ static Handle<Value> Stat(const Arguments& args) {
 
 static Handle<Value> LStat(const Arguments& args) {
   HandleScope scope;
+  FileStatics *statics = NODE_STATICS_GET(node_fs, FileStatics);
 
   if (args.Length() < 1 || !args[0]->IsString()) {
     return THROW_BAD_ARGS;
@@ -431,6 +439,7 @@ static Handle<Value> LStat(const Arguments& args) {
 
 static Handle<Value> FStat(const Arguments& args) {
   HandleScope scope;
+  FileStatics *statics = NODE_STATICS_GET(node_fs, FileStatics);
 
   if (args.Length() < 1 || !args[0]->IsInt32()) {
     return THROW_BAD_ARGS;
@@ -448,6 +457,7 @@ static Handle<Value> FStat(const Arguments& args) {
 
 static Handle<Value> Symlink(const Arguments& args) {
   HandleScope scope;
+  FileStatics *statics = NODE_STATICS_GET(node_fs, FileStatics);
 
   if (args.Length() < 2 || !args[0]->IsString() || !args[1]->IsString()) {
     return THROW_BAD_ARGS;
@@ -474,6 +484,7 @@ static Handle<Value> Symlink(const Arguments& args) {
 
 static Handle<Value> Link(const Arguments& args) {
   HandleScope scope;
+  FileStatics *statics = NODE_STATICS_GET(node_fs, FileStatics);
 
   if (args.Length() < 2 || !args[0]->IsString() || !args[1]->IsString()) {
     return THROW_BAD_ARGS;
@@ -492,6 +503,7 @@ static Handle<Value> Link(const Arguments& args) {
 
 static Handle<Value> ReadLink(const Arguments& args) {
   HandleScope scope;
+  FileStatics *statics = NODE_STATICS_GET(node_fs, FileStatics);
 
   if (args.Length() < 1 || !args[0]->IsString()) {
     return THROW_BAD_ARGS;
@@ -509,6 +521,7 @@ static Handle<Value> ReadLink(const Arguments& args) {
 
 static Handle<Value> Rename(const Arguments& args) {
   HandleScope scope;
+  FileStatics *statics = NODE_STATICS_GET(node_fs, FileStatics);
 
   if (args.Length() < 2 || !args[0]->IsString() || !args[1]->IsString()) {
     return THROW_BAD_ARGS;
@@ -541,6 +554,7 @@ static Handle<Value> Rename(const Arguments& args) {
 
 static Handle<Value> Truncate(const Arguments& args) {
   HandleScope scope;
+  FileStatics *statics = NODE_STATICS_GET(node_fs, FileStatics);
 
   if (args.Length() < 2 || !args[0]->IsInt32()) {
     return THROW_BAD_ARGS;
@@ -561,6 +575,7 @@ static Handle<Value> Truncate(const Arguments& args) {
 
 static Handle<Value> Fdatasync(const Arguments& args) {
   HandleScope scope;
+  FileStatics *statics = NODE_STATICS_GET(node_fs, FileStatics);
 
   if (args.Length() < 1 || !args[0]->IsInt32()) {
     return THROW_BAD_ARGS;
@@ -578,6 +593,7 @@ static Handle<Value> Fdatasync(const Arguments& args) {
 
 static Handle<Value> Fsync(const Arguments& args) {
   HandleScope scope;
+  FileStatics *statics = NODE_STATICS_GET(node_fs, FileStatics);
 
   if (args.Length() < 1 || !args[0]->IsInt32()) {
     return THROW_BAD_ARGS;
@@ -595,6 +611,7 @@ static Handle<Value> Fsync(const Arguments& args) {
 
 static Handle<Value> Unlink(const Arguments& args) {
   HandleScope scope;
+  FileStatics *statics = NODE_STATICS_GET(node_fs, FileStatics);
 
   if (args.Length() < 1 || !args[0]->IsString()) {
     return THROW_BAD_ARGS;
@@ -612,6 +629,7 @@ static Handle<Value> Unlink(const Arguments& args) {
 
 static Handle<Value> RMDir(const Arguments& args) {
   HandleScope scope;
+  FileStatics *statics = NODE_STATICS_GET(node_fs, FileStatics);
 
   if (args.Length() < 1 || !args[0]->IsString()) {
     return THROW_BAD_ARGS;
@@ -629,6 +647,7 @@ static Handle<Value> RMDir(const Arguments& args) {
 
 static Handle<Value> MKDir(const Arguments& args) {
   HandleScope scope;
+  FileStatics *statics = NODE_STATICS_GET(node_fs, FileStatics);
 
   if (args.Length() < 2 || !args[0]->IsString() || !args[1]->IsInt32()) {
     return THROW_BAD_ARGS;
@@ -647,6 +666,7 @@ static Handle<Value> MKDir(const Arguments& args) {
 
 static Handle<Value> SendFile(const Arguments& args) {
   HandleScope scope;
+  FileStatics *statics = NODE_STATICS_GET(node_fs, FileStatics);
 
   if (args.Length() < 4 ||
       !args[0]->IsUint32() ||
@@ -671,6 +691,7 @@ static Handle<Value> SendFile(const Arguments& args) {
 
 static Handle<Value> ReadDir(const Arguments& args) {
   HandleScope scope;
+  FileStatics *statics = NODE_STATICS_GET(node_fs, FileStatics);
 
   if (args.Length() < 1 || !args[0]->IsString()) {
     return THROW_BAD_ARGS;
@@ -705,6 +726,7 @@ static Handle<Value> ReadDir(const Arguments& args) {
 
 static Handle<Value> Open(const Arguments& args) {
   HandleScope scope;
+  FileStatics *statics = NODE_STATICS_GET(node_fs, FileStatics);
 
   if (args.Length() < 3 ||
       !args[0]->IsString() ||
@@ -751,6 +773,7 @@ static Handle<Value> Open(const Arguments& args) {
 //             if null, write from the current position
 static Handle<Value> Write(const Arguments& args) {
   HandleScope scope;
+  FileStatics *statics = NODE_STATICS_GET(node_fs, FileStatics);
 
   if (!args[0]->IsInt32()) {
     return THROW_BAD_ARGS;
@@ -807,6 +830,7 @@ static Handle<Value> Write(const Arguments& args) {
  */
 static Handle<Value> Read(const Arguments& args) {
   HandleScope scope;
+  FileStatics *statics = NODE_STATICS_GET(node_fs, FileStatics);
 
   if (args.Length() < 2 || !args[0]->IsInt32()) {
     return THROW_BAD_ARGS;
@@ -863,6 +887,7 @@ static Handle<Value> Read(const Arguments& args) {
  */
 static Handle<Value> Chmod(const Arguments& args) {
   HandleScope scope;
+  FileStatics *statics = NODE_STATICS_GET(node_fs, FileStatics);
 
   if(args.Length() < 2 || !args[0]->IsString() || !args[1]->IsInt32()) {
     return THROW_BAD_ARGS;
@@ -884,6 +909,7 @@ static Handle<Value> Chmod(const Arguments& args) {
  */
 static Handle<Value> FChmod(const Arguments& args) {
   HandleScope scope;
+  FileStatics *statics = NODE_STATICS_GET(node_fs, FileStatics);
 
   if(args.Length() < 2 || !args[0]->IsInt32() || !args[1]->IsInt32()) {
     return THROW_BAD_ARGS;
@@ -905,6 +931,7 @@ static Handle<Value> FChmod(const Arguments& args) {
  */
 static Handle<Value> Chown(const Arguments& args) {
   HandleScope scope;
+  FileStatics *statics = NODE_STATICS_GET(node_fs, FileStatics);
 
   if (args.Length() < 3 || !args[0]->IsString()) {
     return THROW_BAD_ARGS;
@@ -932,6 +959,7 @@ static Handle<Value> Chown(const Arguments& args) {
  */
 static Handle<Value> FChown(const Arguments& args) {
   HandleScope scope;
+  FileStatics *statics = NODE_STATICS_GET(node_fs, FileStatics);
 
   if (args.Length() < 3 || !args[0]->IsInt32()) {
     return THROW_BAD_ARGS;
@@ -956,6 +984,7 @@ static Handle<Value> FChown(const Arguments& args) {
 
 static Handle<Value> UTimes(const Arguments& args) {
   HandleScope scope;
+  FileStatics *statics = NODE_STATICS_GET(node_fs, FileStatics);
 
   if (args.Length() < 3
       || !args[0]->IsString()
@@ -979,6 +1008,7 @@ static Handle<Value> UTimes(const Arguments& args) {
 
 static Handle<Value> FUTimes(const Arguments& args) {
   HandleScope scope;
+  FileStatics *statics = NODE_STATICS_GET(node_fs, FileStatics);
 
   if (args.Length() < 3
       || !args[0]->IsInt32()
@@ -1003,6 +1033,7 @@ static Handle<Value> FUTimes(const Arguments& args) {
 
 void File::Initialize(Handle<Object> target) {
   HandleScope scope;
+  FileStatics *statics = NODE_STATICS_GET(node_fs, FileStatics);
 
   NODE_SET_METHOD(target, "close", Close);
   NODE_SET_METHOD(target, "open", Open);
@@ -1035,21 +1066,22 @@ void File::Initialize(Handle<Object> target) {
   NODE_SET_METHOD(target, "utimes", UTimes);
   NODE_SET_METHOD(target, "futimes", FUTimes);
 
-  errno_symbol = NODE_PSYMBOL("errno");
-  encoding_symbol = NODE_PSYMBOL("node:encoding");
-  buf_symbol = NODE_PSYMBOL("__buf");
+  statics->errno_symbol = NODE_PSYMBOL("errno");
+  statics->encoding_symbol = NODE_PSYMBOL("node:encoding");
+  statics->buf_symbol = NODE_PSYMBOL("__buf");
 }
 
 void InitFs(Handle<Object> target) {
   HandleScope scope;
+  NODE_STATICS_NEW(node_fs, FileStatics, statics);
   // Initialize the stats object
   Local<FunctionTemplate> stat_templ = FunctionTemplate::New();
-  stats_constructor_template = Persistent<FunctionTemplate>::New(stat_templ);
+  statics->stats_constructor_template = Persistent<FunctionTemplate>::New(stat_templ);
   target->Set(String::NewSymbol("Stats"),
-               stats_constructor_template->GetFunction());
+               statics->stats_constructor_template->GetFunction());
   File::Initialize(target);
 
-  oncomplete_sym = NODE_PSYMBOL("oncomplete");
+  statics->oncomplete_sym = NODE_PSYMBOL("oncomplete");
 
 #ifdef __POSIX__
   StatWatcher::Initialize(target);
