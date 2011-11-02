@@ -123,7 +123,7 @@ void Isolate::StopGCTimer () {
 }
 
 void Isolate::Idle(uv_idle_t* watcher, int status) {
-    ((Isolate *)watcher->data)->__Idle(watcher, status);
+    static_cast<Isolate *>(watcher->data)->__Idle(watcher, status);
 }
 
 void Isolate::__Idle(uv_idle_t* watcher, int status) {
@@ -138,7 +138,7 @@ void Isolate::__Idle(uv_idle_t* watcher, int status) {
 
 // Called directly after every call to select() (or epoll, or whatever)
 void Isolate::Check(uv_check_t* watcher, int status) {
-  ((Isolate *)watcher->data)->__Check(watcher, status);
+  static_cast<Isolate *>(watcher->data)->__Check(watcher, status);
 }
     
 void Isolate::__Check(uv_check_t* watcher, int status) {
@@ -198,7 +198,7 @@ void Isolate::Tick(void) {
 }
 
 void Isolate::Spin(uv_idle_t* handle, int status) {
-  ((Isolate *)handle->data)->__Spin(handle, status);
+  static_cast<Isolate *>(handle->data)->__Spin(handle, status);
 }
 
 void Isolate::__Spin(uv_idle_t* handle, int status) {
@@ -225,7 +225,7 @@ Handle<Value> Isolate::NeedTickCallback(const Arguments& args) {
 }
 
 void Isolate::PrepareTick(uv_prepare_t* handle, int status) {
-  ((Isolate *)handle->data)->__PrepareTick(handle, status);
+  static_cast<Isolate *>(handle->data)->__PrepareTick(handle, status);
 }
 
 void Isolate::__PrepareTick(uv_prepare_t* handle, int status) {
@@ -235,7 +235,7 @@ void Isolate::__PrepareTick(uv_prepare_t* handle, int status) {
 }
 
 void Isolate::CheckTick(uv_check_t* handle, int status) {
-  ((Isolate *)handle->data)->__CheckTick(handle, status);
+  static_cast<Isolate *>(handle->data)->__CheckTick(handle, status);
 }
 
 void Isolate::__CheckTick(uv_check_t* handle, int status) {
@@ -1490,7 +1490,7 @@ v8::Handle<v8::Value> Isolate::Exit(const v8::Arguments& args) {
 }
 
 void Isolate::CheckStatus(uv_timer_t* watcher, int status) {
-    ((Isolate *)watcher->data)->__CheckStatus(watcher, status);
+    static_cast<Isolate *>(watcher->data)->__CheckStatus(watcher, status);
 }
 
 void Isolate::__CheckStatus(uv_timer_t* watcher, int status) {
