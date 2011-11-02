@@ -40,7 +40,7 @@ class SignalWatcher : ObjectWrap {
   }
 
   ~SignalWatcher() {
-    ev_signal_stop(EV_DEFAULT_UC_ &watcher_);
+    ev_signal_stop(loop, &watcher_);
   }
 
   static v8::Handle<v8::Value> New(const v8::Arguments& args);
