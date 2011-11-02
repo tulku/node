@@ -23,10 +23,39 @@
 #define SRC_FILE_H_
 
 #include <node.h>
+//#include <node_statics.h>
 #include <v8.h>
 
 namespace node {
 
+class FileStatics : public ModuleStatics {
+public:
+  v8::Persistent<v8::String> encoding_symbol;
+  v8::Persistent<v8::String> errno_symbol;
+  v8::Persistent<v8::String> buf_symbol;
+  v8::Persistent<v8::String> oncomplete_sym;
+  v8::Persistent<v8::String> syscall_symbol;
+  v8::Persistent<v8::String> errpath_symbol;
+  v8::Persistent<v8::String> code_symbol;
+  v8::Persistent<v8::FunctionTemplate> stats_constructor_template;
+  v8::Persistent<v8::String> dev_symbol;
+  v8::Persistent<v8::String> ino_symbol;
+  v8::Persistent<v8::String> mode_symbol;
+  v8::Persistent<v8::String> nlink_symbol;
+  v8::Persistent<v8::String> uid_symbol;
+  v8::Persistent<v8::String> gid_symbol;
+  v8::Persistent<v8::String> rdev_symbol;
+  v8::Persistent<v8::String> size_symbol;
+  v8::Persistent<v8::String> blksize_symbol;
+  v8::Persistent<v8::String> blocks_symbol;
+  v8::Persistent<v8::String> atime_symbol;
+  v8::Persistent<v8::String> mtime_symbol;
+  v8::Persistent<v8::String> ctime_symbol;
+#ifdef __POSIX__
+  v8::Persistent<v8::FunctionTemplate> stat_watcher_constructor_template;
+#endif
+};
+    
 class File {
  public:
   static void Initialize(v8::Handle<v8::Object> target);

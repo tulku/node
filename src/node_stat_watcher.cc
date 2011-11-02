@@ -20,6 +20,7 @@
 // USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 #include <node_stat_watcher.h>
+#include <node_file.h>
 
 #include <assert.h>
 #include <string.h>
@@ -29,20 +30,19 @@ namespace node {
 
 using namespace v8;
 
-Persistent<FunctionTemplate> StatWatcher::constructor_template;
-
 void StatWatcher::Initialize(Handle<Object> target) {
   HandleScope scope;
+  FileStatics *statics = NODE_STATICS_GET(node_fs, FileStatics);
 
   Local<FunctionTemplate> t = FunctionTemplate::New(StatWatcher::New);
-  constructor_template = Persistent<FunctionTemplate>::New(t);
-  constructor_template->InstanceTemplate()->SetInternalFieldCount(1);
-  constructor_template->SetClassName(String::NewSymbol("StatWatcher"));
+  statics->stat_watcher_constructor_template = Persistent<FunctionTemplate>::New(t);
+  statics->stat_watcher_constructor_template->InstanceTemplate()->SetInternalFieldCount(1);
+  statics->stat_watcher_constructor_template->SetClassName(String::NewSymbol("StatWatcher"));
 
-  NODE_SET_PROTOTYPE_METHOD(constructor_template, "start", StatWatcher::Start);
-  NODE_SET_PROTOTYPE_METHOD(constructor_template, "stop", StatWatcher::Stop);
+  NODE_SET_PROTOTYPE_METHOD(statics->stat_watcher_constructor_template, "start", StatWatcher::Start);
+  NODE_SET_PROTOTYPE_METHOD(statics->stat_watcher_constructor_template, "stop", StatWatcher::Stop);
 
-  target->Set(String::NewSymbol("StatWatcher"), constructor_template->GetFunction());
+  target->Set(String::NewSymbol("StatWatcher"), statics->stat_watcher_constructor_template->GetFunction());
 }
 
 
@@ -59,8 +59,9 @@ void StatWatcher::Callback(EV_P_ ev_stat *watcher, int revents) {
 
 
 Handle<Value> StatWatcher::New(const Arguments& args) {
+  FileStatics *statics = NODE_STATICS_GET(node_fs, FileStatics);
   if (!args.IsConstructCall()) {
-    return FromConstructorTemplate(constructor_template, args);
+    return FromConstructorTemplate(statics->stat_watcher_constructor_template, args);
   }
 
   HandleScope scope;

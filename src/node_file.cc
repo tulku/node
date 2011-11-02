@@ -51,32 +51,6 @@ using namespace v8;
 
 typedef class ReqWrap<uv_fs_t> FSReqWrap;
 
-class FileStatics : public ModuleStatics {
-public:
-    Persistent<String> encoding_symbol;
-    Persistent<String> errno_symbol;
-    Persistent<String> buf_symbol;
-    Persistent<String> oncomplete_sym;
-    Persistent<String> syscall_symbol;
-    Persistent<String> errpath_symbol;
-    Persistent<String> code_symbol;
-    Persistent<FunctionTemplate> stats_constructor_template;
-    Persistent<String> dev_symbol;
-    Persistent<String> ino_symbol;
-    Persistent<String> mode_symbol;
-    Persistent<String> nlink_symbol;
-    Persistent<String> uid_symbol;
-    Persistent<String> gid_symbol;
-    Persistent<String> rdev_symbol;
-    Persistent<String> size_symbol;
-    Persistent<String> blksize_symbol;
-    Persistent<String> blocks_symbol;
-    Persistent<String> atime_symbol;
-    Persistent<String> mtime_symbol;
-    Persistent<String> ctime_symbol;
-};
-
-
 Local<Value> FSError(int errorno,
                      const char *syscall = NULL,
                      const char *msg     = NULL,
