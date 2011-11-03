@@ -69,6 +69,16 @@
 #define NODE_STRINGIFY_HELPER(n) #n
 #endif
 
+#ifdef NODE_LIBRARY
+# define EXIT(X) node::Isolate *i = node::Isolate::GetCurrent(); if(!i->exit_code) i->exit_code = (X)
+# define RETURN_ON_EXIT(X) if(exit_code) return X
+# define BREAK_AND_EXIT(X) ev_break(node::Isolate::GetCurrent()->Loop()->ev, EVBREAK_ALL); EXIT(X)
+#else
+# define EXIT(X) exit((X))
+# define RETURN_ON_EXIT(X)
+# define BREAK_AND_EXIT(X) EXIT(X)
+#endif // NODE_LIBRARY
+
 namespace node {
 
 class NodeOptions {
@@ -99,6 +109,7 @@ public:
     void __SetErrno(uv_err_t err);
     uv_loop_t *Loop();
     ext_statics statics_;
+    int exit_code;
 
     Isolate();
     ~Isolate();
@@ -169,8 +180,8 @@ private:
     
     NodeOptions options;
     volatile bool debugger_running;
-    int uncaught_exception_counter;    
-    
+    int uncaught_exception_counter;
+
     uv_check_t check_tick_watcher;
     uv_prepare_t prepare_tick_watcher;
     uv_idle_t tick_spinner;

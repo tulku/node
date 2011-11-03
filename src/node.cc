@@ -1295,13 +1295,13 @@ Local<Value> ExecuteString(Handle<String> source, Handle<Value> filename) {
   Local<v8::Script> script = v8::Script::Compile(source, filename);
   if (script.IsEmpty()) {
     ReportException(try_catch, true);
-    exit(1);
+    EXIT(1);
   }
 
   Local<Value> result = script->Run();
   if (result.IsEmpty()) {
     ReportException(try_catch, true);
-    exit(1);
+    EXIT(1);
   }
 
   return scope.Close(result);
@@ -1485,7 +1485,8 @@ Handle<Value> Isolate::SetUid(const Arguments& args) {
 
 v8::Handle<v8::Value> Isolate::Exit(const v8::Arguments& args) {
   HandleScope scope;
-  exit(args[0]->IntegerValue());
+  EXIT(args[0]->IntegerValue());
+  v8::V8::TerminateExecution(v8::Isolate::GetCurrent());
   return Undefined();
 }
 
@@ -1726,18 +1727,20 @@ Handle<Value> Compile(const Arguments& args) {
   Local<String> filename = args[1]->ToString();
 
   TryCatch try_catch;
+  Local<Value> result;
 
   Local<v8::Script> script = v8::Script::Compile(source, filename);
   if (try_catch.HasCaught()) {
     // Hack because I can't get a proper stacktrace on SyntaxError
     ReportException(try_catch, true);
-    exit(1);
+    BREAK_AND_EXIT(1);
   }
-
-  Local<Value> result = script->Run();
-  if (try_catch.HasCaught()) {
-    ReportException(try_catch, false);
-    exit(1);
+  else {
+    result = script->Run();
+    if (try_catch.HasCaught()) {
+      ReportException(try_catch, false);
+      BREAK_AND_EXIT(1);
+    }
   }
 
   return scope.Close(result);
@@ -1749,7 +1752,7 @@ void OnFatalError(const char* location, const char* message) {
   } else {
     fprintf(stderr, "FATAL ERROR: %s\n", message);
   }
-  exit(1);
+  BREAK_AND_EXIT(1);
 }
 
 void FatalException(TryCatch &try_catch) {
@@ -1759,12 +1762,19 @@ void FatalException(TryCatch &try_catch) {
 void Isolate::__FatalException(TryCatch &try_catch) {
   HandleScope scope;
 
+  // Immediately exit if the exception is a termination exception
+  if (!try_catch.CanContinue()) {
+    BREAK_AND_EXIT(1);
+    return;
+  }
+    
   // Check if uncaught_exception_counter indicates a recursion
   if (uncaught_exception_counter > 0) {
     ReportException(try_catch, true);
-    exit(1);
+    BREAK_AND_EXIT(1);
+    return;
   }
-
+    
   if (listeners_symbol.IsEmpty()) {
     listeners_symbol = NODE_PSYMBOL("listeners");
     uncaught_exception_symbol = NODE_PSYMBOL("uncaughtException");
@@ -1788,7 +1798,8 @@ void Isolate::__FatalException(TryCatch &try_catch) {
   // Report and exit if process has no "uncaughtException" listener
   if (length == 0) {
     ReportException(try_catch, true);
-    exit(1);
+    BREAK_AND_EXIT(1);
+    return;
   }
 
   // Otherwise fire the process "uncaughtException" event
@@ -2174,9 +2185,11 @@ void Isolate::Load(Handle<Object> process) {
 
   Local<Value> f_value = ExecuteString(MainSource(),
                                        IMMUTABLE_STRING("node.js"));
+  RETURN_ON_EXIT();
   if (try_catch.HasCaught())  {
     ReportException(try_catch, true);
-    exit(10);
+    EXIT(10);
+    return;
   }
   assert(f_value->IsFunction());
   Local<Function> f = Local<Function>::Cast(f_value);
@@ -2201,7 +2214,7 @@ void Isolate::Load(Handle<Object> process) {
 
   if (try_catch.HasCaught())  {
     ReportException(try_catch, true);
-    exit(11);
+    EXIT(11);
   }
 }
 
@@ -2231,7 +2244,7 @@ void ParseDebugOpt(const char* arg, NodeOptions *options) {
   if (p) fprintf(stderr, "Debug port must be in range 1025 to 65535.\n");
 
   PrintHelp();
-  exit(1);
+  EXIT(1);
 }
 
 static void PrintHelp() {
@@ -2277,6 +2290,7 @@ static void ParseArgs(int argc, char **argv, NodeOptions *options) {
     if (strstr(arg, "--debug") == arg) {
       ParseDebugOpt(arg, options);
       argv[i] = const_cast<char*>("");
+#ifndef NODE_LIBRARY
     } else if (strcmp(arg, "--version") == 0 || strcmp(arg, "-v") == 0) {
       printf("%s\n", NODE_VERSION);
       exit(0);
@@ -2288,23 +2302,24 @@ static void ParseArgs(int argc, char **argv, NodeOptions *options) {
       printf("NODE_CFLAGS: %s\n", NODE_CFLAGS);
 #endif
       exit(0);
+    } else if (strcmp(arg, "--help") == 0 || strcmp(arg, "-h") == 0) {
+      PrintHelp();
+      exit(0);
+    } else if (strcmp(arg, "--v8-options") == 0) {
+        argv[i] = const_cast<char*>("--help");
+#endif // NODE_LIBRARY
     } else if (strstr(arg, "--max-stack-size=") == arg) {
       const char *p = 0;
       p = 1 + strchr(arg, '=');
       options->max_stack_size = atoi(p);
       argv[i] = const_cast<char*>("");
-    } else if (strcmp(arg, "--help") == 0 || strcmp(arg, "-h") == 0) {
-      PrintHelp();
-      exit(0);
     } else if (strcmp(arg, "--eval") == 0 || strcmp(arg, "-e") == 0) {
       if (argc <= i + 1) {
         fprintf(stderr, "Error: --eval requires an argument\n");
-        exit(1);
+        EXIT(1);
       }
       argv[i] = const_cast<char*>("");
       options->eval_string = argv[++i];
-    } else if (strcmp(arg, "--v8-options") == 0) {
-      argv[i] = const_cast<char*>("--help");
     } else if (argv[i][0] != '-') {
       break;
     }
@@ -2350,7 +2365,7 @@ void Isolate::EnableDebugSignalHandler(int signal) {
 
 #if defined(__MINGW32__) || defined(_MSC_VER)
 bool Isolate::EnableDebugSignalHandler(DWORD signal) {
-  if (signal == CTRL_C_EVENT) exit(1);
+  if (signal == CTRL_C_EVENT) BREAK_AND_EXIT(1);
   if (signal != CTRL_BREAK_EVENT) return false;
 
   // Break once process will return execution to v8
@@ -2497,6 +2512,7 @@ void Isolate::EmitExit(v8::Handle<v8::Object> process) {
 int Isolate::Start(int argc, char *argv[]) {
   // This needs to run *before* V8::Initialize()
   argv = Init(argc, argv);
+  RETURN_ON_EXIT(exit_code);
 
   v8::V8::Initialize();
   v8::HandleScope handle_scope;
@@ -2507,10 +2523,12 @@ int Isolate::Start(int argc, char *argv[]) {
 
   Handle<Object> process = SetupProcessObject(argc, argv);
   v8_typed_array::AttachBindings(context->Global());
+  RETURN_ON_EXIT(exit_code);
 
   // Create all the objects, load modules, do everything.
   // so your next reading stop should be node::Load()!
   Load(process);
+  RETURN_ON_EXIT(exit_code);
 
   // All our arguments are loaded. We've evaluated all of the scripts. We
   // might even have created TCP servers. Now we enter the main eventloop. If
@@ -2518,6 +2536,7 @@ int Isolate::Start(int argc, char *argv[]) {
   // uv_unref'd) then this function exits. As long as there are active
   // watchers, it blocks.
   uv_run(Loop());
+  RETURN_ON_EXIT(exit_code);
 
   EmitExit(process);
 
@@ -2527,7 +2546,7 @@ int Isolate::Start(int argc, char *argv[]) {
   V8::Dispose();
 #endif  // NDEBUG
 
-  return 0;
+  return exit_code;
 }
     
 uv_loop_t *Isolate::Loop() {
@@ -2555,6 +2574,7 @@ Isolate::Isolate() {
 #endif
     debugger_running = false;
     uncaught_exception_counter = 0;
+    exit_code = 0;
     loop_ = uv_loop_new();
 }
 
