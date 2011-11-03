@@ -2092,9 +2092,9 @@ Handle<Object> Isolate::SetupProcessObject(int argc, char *argv[]) {
   process->Set(String::NewSymbol("platform"), String::New(PLATFORM));
 
   // process.argv
-  Local<Array> arguments = Array::New(argc - options.option_end_index + 1);
+  Local<Array> arguments = Array::New(argc - options.args_start_index + 1);
   arguments->Set(Integer::New(0), String::New(argv[0]));
-  for (j = 1, i = options.option_end_index; i < argc; j++, i++) {
+  for (j = 1, i = options.args_start_index; i < argc; j++, i++) {
     Local<String> arg = String::New(argv[i]);
     arguments->Set(Integer::New(j), arg);
   }
@@ -2218,35 +2218,6 @@ void Isolate::Load(Handle<Object> process) {
   }
 }
 
-static void PrintHelp();
-
-void ParseDebugOpt(const char* arg, NodeOptions *options) {
-  const char *p = 0;
-
-  options->use_debug_agent = true;
-  if (!strcmp (arg, "--debug-brk")) {
-    options->debug_wait_connect = true;
-    return;
-  } else if (!strcmp(arg, "--debug")) {
-    return;
-  } else if (strstr(arg, "--debug-brk=") == arg) {
-    options->debug_wait_connect = true;
-    p = 1 + strchr(arg, '=');
-    options->debug_port = atoi(p);
-  } else if (strstr(arg, "--debug=") == arg) {
-    p = 1 + strchr(arg, '=');
-    options->debug_port = atoi(p);
-  }
-  if (p && options->debug_port > 1024 && options->debug_port <  65536)
-      return;
-
-  fprintf(stderr, "Bad debug option.\n");
-  if (p) fprintf(stderr, "Debug port must be in range 1025 to 65535.\n");
-
-  PrintHelp();
-  EXIT(1);
-}
-
 static void PrintHelp() {
   printf("Usage: node [options] [ -e script | script.js ] [arguments] \n"
          "       node debug script.js [arguments] \n"
@@ -2270,25 +2241,28 @@ static void PrintHelp() {
 }
     
 NodeOptions::NodeOptions() {
-    eval_string = NULL;
-    option_end_index = 0;
-    use_debug_agent = false;
-    debug_wait_connect = false;
-    debug_port = 5858;
-    max_stack_size = 0;
+  args_start_index = 0;
+  eval_string = NULL;
+  use_debug_agent = false;
+  debug_wait_connect = false;
+  debug_port = 5858;
+  max_stack_size = 0;
 }
 
 NodeOptions::~NodeOptions() {}
-    
+  
+static NodeOptions options;
+
 // Parse node command line arguments.
-static void ParseArgs(int argc, char **argv, NodeOptions *options) {
+// sets args_start_index to index of first non-option argument, or argc if none
+void NodeOptions::ParseArgs(int argc, char **argv) {
   int i;
 
   // TODO use parse opts
   for (i = 1; i < argc; i++) {
     const char *arg = argv[i];
     if (strstr(arg, "--debug") == arg) {
-      ParseDebugOpt(arg, options);
+      ParseDebugOpt(arg);
       argv[i] = const_cast<char*>("");
 #ifndef NODE_LIBRARY
     } else if (strcmp(arg, "--version") == 0 || strcmp(arg, "-v") == 0) {
@@ -2311,7 +2285,7 @@ static void ParseArgs(int argc, char **argv, NodeOptions *options) {
     } else if (strstr(arg, "--max-stack-size=") == arg) {
       const char *p = 0;
       p = 1 + strchr(arg, '=');
-      options->max_stack_size = atoi(p);
+      max_stack_size = atoi(p);
       argv[i] = const_cast<char*>("");
     } else if (strcmp(arg, "--eval") == 0 || strcmp(arg, "-e") == 0) {
       if (argc <= i + 1) {
@@ -2319,16 +2293,61 @@ static void ParseArgs(int argc, char **argv, NodeOptions *options) {
         EXIT(1);
       }
       argv[i] = const_cast<char*>("");
-      options->eval_string = argv[++i];
+      eval_string = argv[++i];
+    } else if (strcmp(arg, "--") == 0) {
+      argv[i++] = const_cast<char*>(""); // skip past this argument
+      break;
     } else if (argv[i][0] != '-') {
       break;
     }
   }
-
-  options->option_end_index = i;
+  args_start_index = i;
 }
 
-void Isolate::EnableDebug(bool wait_connect) {
+void NodeOptions::ParseDebugOpt(const char* arg) {
+  const char *p = 0;
+
+  use_debug_agent = true;
+  if (!strcmp (arg, "--debug-brk")) {
+    debug_wait_connect = true;
+    return;
+  } else if (!strcmp(arg, "--debug")) {
+    return;
+  } else if (strstr(arg, "--debug-brk=") == arg) {
+    debug_wait_connect = true;
+    p = 1 + strchr(arg, '=');
+    debug_port = atoi(p);
+  } else if (strstr(arg, "--debug=") == arg) {
+    p = 1 + strchr(arg, '=');
+    debug_port = atoi(p);
+  }
+  if (p && debug_port > 1024 && debug_port <  65536)
+    return;
+
+  fprintf(stderr, "Bad debug option.\n");
+  if (p) fprintf(stderr, "Debug port must be in range 1025 to 65535.\n");
+  
+  PrintHelp();
+  EXIT(1);
+}
+  
+void NodeOptions::SetResourceConstraints() {
+  if(max_stack_size) {
+    // For the normal stack which moves from high to low addresses when frames
+    // are pushed, we can compute the limit as stack_size bytes below the
+    // the address of a stack variable (e.g. &stack_var) as an approximation
+    // of the start of the stack (we're assuming that we haven't pushed a lot
+    // of frames yet).
+    uint32_t stack_var;
+    uint32_t *stack_limit = &stack_var - (max_stack_size / sizeof(uint32_t));
+    constraints.set_stack_limit(stack_limit);
+    v8::SetResourceConstraints(&constraints);
+  }
+}
+
+static volatile bool debugger_running = false;
+
+void EnableDebug(bool wait_connect) {
   // Start the debug thread and it's associated TCP server on port 5858.
   bool r = Debug::EnableAgent("node " NODE_VERSION, options.debug_port);
 
@@ -2351,30 +2370,28 @@ void Isolate::EnableDebug(bool wait_connect) {
 
 
 #ifdef __POSIX__
-void Isolate::EnableDebugSignalHandler(int signal) {
+void EnableDebugSignalHandler(int signal) {
   // Break once process will return execution to v8
   v8::Debug::DebugBreak();
 
-  Isolate *isolate = Isolate::GetCurrent();
-  if (!isolate->debugger_running) {
+  if (!debugger_running) {
     fprintf(stderr, "Hit SIGUSR1 - starting debugger agent.\n");
-    isolate->EnableDebug(false);
+    EnableDebug(false);
   }
 }
 #endif // __POSIX__
 
 #if defined(__MINGW32__) || defined(_MSC_VER)
-bool Isolate::EnableDebugSignalHandler(DWORD signal) {
+bool EnableDebugSignalHandler(DWORD signal) {
   if (signal == CTRL_C_EVENT) BREAK_AND_EXIT(1);
   if (signal != CTRL_BREAK_EVENT) return false;
 
   // Break once process will return execution to v8
   v8::Debug::DebugBreak();
 
-  Isolate *isolate = Isolate::GetCurrent();
-  if (!isolate->debugger_running) {
+  if (!debugger_running) {
     fprintf(stderr, "Hit Ctrl+Break - starting debugger agent.\n");
-    isolate->EnableDebug(false);
+    EnableDebug(false);
     return true;
   } else {
     // Run default system action (terminate)
@@ -2387,7 +2404,7 @@ bool Isolate::EnableDebugSignalHandler(DWORD signal) {
 
 #ifdef __POSIX__
 
-int Isolate::RegisterSignalHandler(int signal, void (*handler)(int)) {
+int RegisterSignalHandler(int signal, void (*handler)(int)) {
   struct sigaction sa;
 
   memset(&sa, 0, sizeof(sa));
@@ -2398,49 +2415,11 @@ int Isolate::RegisterSignalHandler(int signal, void (*handler)(int)) {
 #endif // __POSIX__
 
 
-char** Isolate::Init(int argc, char *argv[]) {
-  // Hack aroung with the argv pointer. Used for process.title = "blah".
-  argv = node::Platform::SetupArgs(argc, argv);
-
-  // Parse a few arguments which are specific to Node.
-  ParseArgs(argc, argv, &options);
-  // Parse the rest of the args (up to the 'option_end_index' (where '--' was
-  // in the command line))
-  int v8argc = options.option_end_index;
-  char **v8argv = argv;
-
-  if (options.debug_wait_connect) {
-    // v8argv is a copy of argv up to the script file argument +2 if --debug-brk
-    // to expose the v8 debugger js object so that node.js can set
-    // a breakpoint on the first line of the startup script
-    v8argc += 2;
-    v8argv = new char*[v8argc];
-    memcpy(v8argv, argv, sizeof(argv) * options.option_end_index);
-    v8argv[options.option_end_index] = const_cast<char*>("--expose_debug_as");
-    v8argv[options.option_end_index + 1] = const_cast<char*>("v8debug");
-  }
-
-  // For the normal stack which moves from high to low addresses when frames
-  // are pushed, we can compute the limit as stack_size bytes below the
-  // the address of a stack variable (e.g. &stack_var) as an approximation
-  // of the start of the stack (we're assuming that we haven't pushed a lot
-  // of frames yet).
-  if (options.max_stack_size != 0) {
-    uint32_t stack_var;
-    ResourceConstraints constraints;
-
-    uint32_t *stack_limit = &stack_var - (options.max_stack_size / sizeof(uint32_t));
-    constraints.set_stack_limit(stack_limit);
-    SetResourceConstraints(&constraints); // Must be done before V8::Initialize
-  }
-  V8::SetFlagsFromCommandLine(&v8argc, v8argv, false);
-
-#ifdef __POSIX__
-  // Ignore SIGPIPE
-  RegisterSignalHandler(SIGPIPE, SIG_IGN);
-  RegisterSignalHandler(SIGINT, SignalExit);
-  RegisterSignalHandler(SIGTERM, SignalExit);
-#endif // __POSIX__
+int Isolate::Init(int argc, char *argv[]) {
+  // Parse options, inheriting already-provided global options
+  options = node::options;
+  options.ParseArgs(argc, argv);
+  options.SetResourceConstraints();
 
   uv_prepare_init(Loop(), &prepare_tick_watcher);
   uv_prepare_start(&prepare_tick_watcher, PrepareTick);
@@ -2465,7 +2444,6 @@ char** Isolate::Init(int argc, char *argv[]) {
 
   V8::SetFatalErrorHandler(node::OnFatalError);
 
-
   // Set the callback DebugMessageDispatch which is called from the debug
   // thread.
   Debug::SetDebugMessageDispatchHandler(node::DebugMessageDispatch);
@@ -2478,20 +2456,7 @@ char** Isolate::Init(int argc, char *argv[]) {
   // unref it so that we exit the event loop despite it being active.
   uv_unref(Loop());
 
-
-  // If the --debug flag was specified then initialize the debug thread.
-  if (options.use_debug_agent) {
-    EnableDebug(options.debug_wait_connect);
-  } else {
-#ifdef __POSIX__
-    RegisterSignalHandler(SIGUSR1, EnableDebugSignalHandler);
-#endif // __POSIX__
-#if defined(__MINGW32__) || defined(_MSC_VER)
-    SetConsoleCtrlHandler((PHANDLER_ROUTINE) EnableDebugSignalHandler, TRUE);
-#endif
-  }
-
-  return argv;
+  return 0;
 }
 
 
@@ -2510,14 +2475,12 @@ void Isolate::EmitExit(v8::Handle<v8::Object> process) {
 
 
 int Isolate::Start(int argc, char *argv[]) {
-  // This needs to run *before* V8::Initialize()
-  argv = Init(argc, argv);
+  // Process arguments and other Isolate-wide init
+  Init(argc, argv);
   RETURN_ON_EXIT(exit_code);
 
-  v8::V8::Initialize();
+  // Create the one and only Context for this isolate.
   v8::HandleScope handle_scope;
-
-  // Create the one and only Context.
   Persistent<v8::Context> context = v8::Context::New();
   v8::Context::Scope context_scope(context);
 
@@ -2572,7 +2535,6 @@ Isolate::Isolate() {
 #else
     use_sni = false;
 #endif
-    debugger_running = false;
     uncaught_exception_counter = 0;
     exit_code = 0;
     loop_ = uv_loop_new();
@@ -2582,8 +2544,64 @@ Isolate::~Isolate() {
     uv_loop_delete(loop_);
 }
 
+// one-time initialisation
+int Initialize(int argc, char *argv[]) {
+  // Hack aroung with the argv pointer. Used for process.title = "blah".
+  argv = node::Platform::SetupArgs(argc, argv);
+  // Parse a few arguments which are specific to Node.
+  options.ParseArgs(argc, argv);
+  // Parse the rest of the args (up to the 'option_end_index' (where '--' was
+  // in the command line))
+  int v8argc = options.args_start_index;
+  char **v8argv = argv;
+
+  if (options.debug_wait_connect) {
+    // v8argv is a copy of argv up to the script file argument +2 if --debug-brk
+    // to expose the v8 debugger js object so that node.js can set
+    // a breakpoint on the first line of the startup script
+    v8argc += 2;
+    v8argv = new char*[v8argc];
+    memcpy(v8argv, argv, sizeof(argv) * options.args_start_index);
+    v8argv[options.args_start_index] = const_cast<char*>("--expose_debug_as");
+    v8argv[options.args_start_index + 1] = const_cast<char*>("v8debug");
+  }
+    
+  // now initialise v8 with options and resource constraints
+  options.SetResourceConstraints();
+  V8::SetFlagsFromCommandLine(&v8argc, v8argv, false);
+  V8::Initialize();
+  
+  // overwrite the processed option arguments to avoid them being re-processed
+  for(int i=1; i < options.args_start_index; i++) argv[i] = const_cast<char*>("");
+  
+#if defined(__POSIX__) && !defined(NODE_LIBRARY)
+  // Ignore SIGPIPE
+  RegisterSignalHandler(SIGPIPE, SIG_IGN);
+  RegisterSignalHandler(SIGINT, SignalExit);
+  RegisterSignalHandler(SIGTERM, SignalExit);
+#endif // defined(__POSIX__) && !defined(NODE_LIBRARY)
+
+  // If the --debug flag was specified then initialize the debug thread.
+  if (options.use_debug_agent) {
+    EnableDebug(options.debug_wait_connect);
+  } else {
+#ifdef __POSIX__
+    RegisterSignalHandler(SIGUSR1, EnableDebugSignalHandler);
+#endif // __POSIX__
+#if defined(__MINGW32__) || defined(_MSC_VER)
+    SetConsoleCtrlHandler((PHANDLER_ROUTINE) EnableDebugSignalHandler, TRUE);
+#endif
+  }
+  
+  return 0;
+}
+
+// run node in its own process in the conventional manner
 int Start(int argc, char **argv) {
-  return Isolate::GetCurrent()->Start(argc, argv);
+  int result = Initialize(argc, argv);
+  if(result == 0)
+    result = Isolate::GetCurrent()->Start(argc, argv);
+  return result;
 }
 
 }  // namespace node

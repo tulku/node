@@ -83,14 +83,21 @@ namespace node {
 
 class NodeOptions {
 public:
-    char *eval_string;
-    int option_end_index;
-    bool use_debug_agent;
-    bool debug_wait_connect;
-    int debug_port;
-    int max_stack_size;
-    NodeOptions();
-    ~NodeOptions();
+  // the index of the first non-option argument, after processing
+  int args_start_index;
+  // instance options, may be specified globally or per-isolate
+  char *eval_string;
+  int max_stack_size;
+  v8::ResourceConstraints constraints;
+  // global-only (debug) options, ignored if passed as isolate options
+  bool use_debug_agent;
+  bool debug_wait_connect;
+  int debug_port;
+  void ParseArgs(int argc, char **argv);
+  void ParseDebugOpt(const char* arg);
+  void SetResourceConstraints();
+  NodeOptions();
+  ~NodeOptions();
 };
     
 class Isolate {
@@ -150,18 +157,10 @@ private:
 
     v8::Handle<v8::Object> GetFeatures();
 
-    char** Init(int argc, char *argv[]);
+    int Init(int argc, char *argv[]);
     v8::Handle<v8::Object> SetupProcessObject(int argc, char *argv[]);
     void Load(v8::Handle<v8::Object> process);
     void EmitExit(v8::Handle<v8::Object> process);
-    void EnableDebug(bool wait_connect);
-#ifdef __POSIX__
-    static void EnableDebugSignalHandler(int signal);
-    static int RegisterSignalHandler(int signal, void (*handler)(int));
-#endif // __POSIX__
-#if defined(__MINGW32__) || defined(_MSC_VER)
-    static bool EnableDebugSignalHandler(int signal);
-#endif // defined(__MINGW32__) || defined(_MSC_VER)
 
     v8::Persistent<v8::Object> process;
     
@@ -179,7 +178,6 @@ private:
     v8::Persistent<v8::String> emit_symbol;
     
     NodeOptions options;
-    volatile bool debugger_running;
     int uncaught_exception_counter;
 
     uv_check_t check_tick_watcher;
@@ -215,11 +213,7 @@ private:
 };
 
 int Start(int argc, char *argv[]);
-
-char** Init(int argc, char *argv[]);
-v8::Handle<v8::Object> SetupProcessObject(int argc, char *argv[]);
-void Load(v8::Handle<v8::Object> process);
-void EmitExit(v8::Handle<v8::Object> process);
+int Initialize(int argc, char *argv[]);
 
 #define NODE_PSYMBOL(s) v8::Persistent<v8::String>::New(v8::String::NewSymbol(s))
 
@@ -343,6 +337,14 @@ node_module_struct* get_builtin_module(const char *name, int *idx=0);
 #define NODE_MODULE_DECL(modname) \
   extern node::node_module_struct modname ## _module;
 
+void EnableDebug(bool wait_connect);
+#ifdef __POSIX__
+void EnableDebugSignalHandler(int signal);
+int RegisterSignalHandler(int signal, void (*handler)(int));
+#endif // __POSIX__
+#if defined(__MINGW32__) || defined(_MSC_VER)
+bool EnableDebugSignalHandler(int signal);
+#endif // defined(__MINGW32__) || defined(_MSC_VER)
 void SetErrno(uv_err_t err);
 void SetLastErrno();
 void FatalException(v8::TryCatch &try_catch);
