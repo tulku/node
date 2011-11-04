@@ -35,7 +35,7 @@ NODE_LOCAL_JS_LIBRARY_FILES := \
 	lib/util.js \
 	lib/vm.js \
 	lib/zlib.js \
-	macros.py
+	src/macros.py
 
 PATH_LOCAL_JS_LIBRARY_FILES := $(addprefix $(LOCAL_PATH)/, $(NODE_LOCAL_JS_LIBRARY_FILES))
 
