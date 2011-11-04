@@ -72,7 +72,7 @@
 #ifdef NODE_LIBRARY
 # define EXIT(X) node::Isolate *i = node::Isolate::GetCurrent(); if(!i->exit_code) i->exit_code = (X)
 # define RETURN_ON_EXIT(X) if(exit_code) return X
-# define BREAK_AND_EXIT(X) ev_break(node::Isolate::GetCurrent()->Loop()->ev, EVBREAK_ALL); EXIT(X)
+# define BREAK_AND_EXIT(X) ev_break(node::Isolate::GetCurrent()->Loop()->ev, EVBREAK_ALL); EXIT(X) //FIXME: implement generically for uv
 #else
 # define EXIT(X) exit((X))
 # define RETURN_ON_EXIT(X)
@@ -102,6 +102,7 @@ public:
     
 class Isolate {
 public:
+    static Isolate* GetDefault();
     static Isolate* GetCurrent();
     static uv_loop_t* GetCurrentLoop();
     int Start(int argc, char *argv[]);
@@ -162,6 +163,7 @@ private:
     void Load(v8::Handle<v8::Object> process);
     void EmitExit(v8::Handle<v8::Object> process);
 
+    v8::Isolate *isolate;
     v8::Persistent<v8::Object> process;
     
     v8::Persistent<v8::String> errno_symbol;
@@ -214,6 +216,7 @@ private:
 
 int Start(int argc, char *argv[]);
 int Initialize(int argc, char *argv[]);
+void Dispose();
 
 #define NODE_PSYMBOL(s) v8::Persistent<v8::String>::New(v8::String::NewSymbol(s))
 

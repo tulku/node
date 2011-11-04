@@ -99,7 +99,8 @@ namespace node {
     
 static Isolate defaultIsolate;
     
-Isolate *Isolate::GetCurrent() {return &defaultIsolate;}
+Isolate *Isolate::GetDefault() {return &defaultIsolate;}
+Isolate *Isolate::GetCurrent() {return static_cast<Isolate *>(v8::Isolate::GetCurrent()->GetData());}
 uv_loop_t *Isolate::GetCurrentLoop() {return GetCurrent()->Loop();}
 
 bool need_gc;
@@ -2475,6 +2476,13 @@ void Isolate::EmitExit(v8::Handle<v8::Object> process) {
 
 
 int Isolate::Start(int argc, char *argv[]) {
+  // Get and enter v8::Isolate
+  isolate = v8::Isolate::GetCurrent();
+  if(!isolate) isolate = v8::Isolate::New();
+  isolate->SetData(this);
+  v8::Locker locker(isolate);
+  v8::Isolate::Scope isolate_scope(isolate);
+  
   // Process arguments and other Isolate-wide init
   Init(argc, argv);
   RETURN_ON_EXIT(exit_code);
@@ -2484,6 +2492,7 @@ int Isolate::Start(int argc, char *argv[]) {
   Persistent<v8::Context> context = v8::Context::New();
   v8::Context::Scope context_scope(context);
 
+  // set up JS-side prerequisites
   Handle<Object> process = SetupProcessObject(argc, argv);
   v8_typed_array::AttachBindings(context->Global());
   RETURN_ON_EXIT(exit_code);
@@ -2506,7 +2515,6 @@ int Isolate::Start(int argc, char *argv[]) {
 #ifndef NDEBUG
   // Clean up.
   context.Dispose();
-  V8::Dispose();
 #endif  // NDEBUG
 
   return exit_code;
@@ -2517,31 +2525,45 @@ uv_loop_t *Isolate::Loop() {
 }
     
 Isolate::Isolate() {
-    check_tick_watcher.data = this;
-    prepare_tick_watcher.data = this;
-    tick_spinner.data = this;
-    gc_check.data = this;
-    gc_idle.data = this;
-    gc_timer.data = this;
+  check_tick_watcher.data = this;
+  prepare_tick_watcher.data = this;
+  tick_spinner.data = this;
+  gc_check.data = this;
+  gc_idle.data = this;
+  gc_timer.data = this;
     
 #ifdef OPENSSL_NPN_NEGOTIATED
-    use_npn = true;
+  use_npn = true;
 #else
-    use_npn = false;
+  use_npn = false;
 #endif
     
 #ifdef SSL_CTRL_SET_TLSEXT_SERVERNAME_CB
-    use_sni = true;
+  use_sni = true;
 #else
-    use_sni = false;
+  use_sni = false;
 #endif
-    uncaught_exception_counter = 0;
-    exit_code = 0;
-    loop_ = uv_loop_new();
+  uncaught_exception_counter = 0;
+  exit_code = 0;
+  loop_ = (this == &defaultIsolate) ? uv_default_loop(): uv_loop_new();
 }
 
 Isolate::~Isolate() {
-    uv_loop_delete(loop_);
+    if(this != &defaultIsolate) uv_loop_delete(loop_);
+}
+  
+Isolate *Isolate::New() {
+  return new Isolate();
+}
+  
+void Isolate::Dispose() {
+  isolate->Dispose();
+}
+  
+int Isolate::Stop(int signum) {
+  ev_feed_signal(/*Loop()->ev,*/ signum);  //FIXME: implement generically for non-default loops
+  ev_break(Loop()->ev, EVBREAK_ALL);  //FIXME: implement generically for uv
+  return exit_code;
 }
 
 // one-time initialisation
@@ -2599,9 +2621,15 @@ int Initialize(int argc, char *argv[]) {
 // run node in its own process in the conventional manner
 int Start(int argc, char **argv) {
   int result = Initialize(argc, argv);
-  if(result == 0)
-    result = Isolate::GetCurrent()->Start(argc, argv);
+  if(result == 0) {
+    result = Isolate::GetDefault()->Start(argc, argv);
+    Dispose();
+  }
   return result;
+}
+  
+void Dispose() {
+  V8::Dispose();
 }
 
 }  // namespace node
