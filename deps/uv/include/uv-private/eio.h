@@ -206,6 +206,8 @@ enum {
   EIO_PRI_DEFAULT =  0
 };
 
+typedef void* eio_poll_data;
+
 /* eio request structure */
 /* this structure is mostly read-only */
 /* when initialising it, all members must be zero-initialised */
@@ -226,6 +228,8 @@ struct eio_req
   long int2;       /* chown, fchown: uid; sendfile: input fd; open, chmod, mkdir, mknod: file mode, sync_file_range, fallocate: flags */
   long int3;       /* chown, fchown: gid */
   int errorno;     /* errno value on syscall return */
+  
+  eio_poll_data poll_data; /* data used to direct poll callbacks arising from this req */
 
 #if __i386 || __amd64
   unsigned char cancelled;
@@ -261,7 +265,7 @@ enum {
  * and eio_poll_cb needs to be invoked (it MUST NOT call eio_poll_cb itself).
  * done_poll is called when the need to poll is gone.
  */
-int eio_init (void (*want_poll)(void), void (*done_poll)(void));
+int eio_init (void (*want_poll)(eio_poll_data), void (*done_poll)(eio_poll_data));
 
 /* must be called regularly to handle pending requests */
 /* returns 0 if all requests were handled, -1 if not, or the value of EIO_FINISH if != 0 */

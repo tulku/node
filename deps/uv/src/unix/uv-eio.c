@@ -27,10 +27,6 @@
 #include <stdio.h>
 #include <pthread.h>
 
-/* TODO remove me! */
-static uv_loop_t* main_loop;
-
-
 static void uv_eio_do_poll(uv_idle_t* watcher, int status) {
   assert(watcher == &(watcher->loop->uv_eio_poller));
 
@@ -79,7 +75,7 @@ static void uv_eio_done_poll_notifier_cb(uv_async_t* watcher, int revents) {
  * uv_eio_want_poll() is called from the EIO thread pool each time an EIO
  * request (that is, one of the node.fs.* functions) has completed.
  */
-static void uv_eio_want_poll(void) {
+static void uv_eio_want_poll(eio_poll_data poll_data) {
   /* Signal the main thread that eio_poll need to be processed. */
 
   /*
@@ -87,16 +83,16 @@ static void uv_eio_want_poll(void) {
    * uv_eio_want_poll_notifier.
    */
 
-  uv_async_send(&main_loop->uv_eio_want_poll_notifier);
+  uv_async_send(&((uv_loop_t *)poll_data)->uv_eio_want_poll_notifier);
 }
 
 
-static void uv_eio_done_poll(void) {
+static void uv_eio_done_poll(eio_poll_data poll_data) {
   /*
    * Signal the main thread that we should stop calling eio_poll().
    * from the idle watcher.
    */
-  uv_async_send(&main_loop->uv_eio_done_poll_notifier);
+  uv_async_send(&((uv_loop_t *)poll_data)->uv_eio_done_poll_notifier);
 }
 
 static pthread_once_t eio_initialised = PTHREAD_ONCE_INIT;
@@ -113,8 +109,6 @@ void uv_eio_init(uv_loop_t* loop) {
   if (loop->counters.eio_init == 0) {
     loop->counters.eio_init++;
 
-    main_loop = loop;
-
     uv_idle_init(loop, &loop->uv_eio_poller);
     uv_idle_start(&loop->uv_eio_poller, uv_eio_do_poll);
 
@@ -128,11 +122,5 @@ void uv_eio_init(uv_loop_t* loop) {
     uv_unref(loop);
 
     pthread_once(&eio_initialised, eio_init_once);
-  } else {
-    /*
-     * If this assertion breaks then Ryan hasn't implemented support for
-     * receiving thread pool requests back to multiple threads.
-     */
-    assert(main_loop == loop);
   }
 }

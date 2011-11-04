@@ -49,6 +49,7 @@
       uv__set_sys_error(loop, ENOMEM); \
       return -1; \
     } \
+    req->eio->poll_data = loop; \
     uv_ref(loop); \
   } else { \
     /* sync */ \
@@ -196,6 +197,7 @@ int uv_fs_open(uv_loop_t* loop, uv_fs_t* req, const char* path, int flags,
       uv__set_sys_error(loop, ENOMEM);
       return -1;
     }
+    req->eio->poll_data = loop;
 
   } else {
     /* sync */
@@ -228,6 +230,7 @@ int uv_fs_read(uv_loop_t* loop, uv_fs_t* req, uv_file fd, void* buf,
       uv__set_sys_error(loop, ENOMEM);
       return -1;
     }
+    req->eio->poll_data = loop;
 
   } else {
     /* sync */
@@ -265,6 +268,7 @@ int uv_fs_write(uv_loop_t* loop, uv_fs_t* req, uv_file file, void* buf,
       uv__set_sys_error(loop, ENOMEM);
       return -1;
     }
+    req->eio->poll_data = loop;
 
   } else {
     /* sync */
@@ -312,6 +316,7 @@ int uv_fs_readdir(uv_loop_t* loop, uv_fs_t* req, const char* path, int flags,
       uv__set_sys_error(loop, ENOMEM);
       return -1;
     }
+    req->eio->poll_data = loop;
 
   } else {
     /* sync */
@@ -385,6 +390,7 @@ int uv_fs_stat(uv_loop_t* loop, uv_fs_t* req, const char* path, uv_fs_cb cb) {
       uv__set_sys_error(loop, ENOMEM);
       return -1;
     }
+    req->eio->poll_data = loop;
 
   } else {
     /* sync */
@@ -417,6 +423,7 @@ int uv_fs_fstat(uv_loop_t* loop, uv_fs_t* req, uv_file file, uv_fs_cb cb) {
       uv__set_sys_error(loop, ENOMEM);
       return -1;
     }
+    req->eio->poll_data = loop;
 
   } else {
     /* sync */
@@ -558,6 +565,7 @@ int uv_fs_lstat(uv_loop_t* loop, uv_fs_t* req, const char* path, uv_fs_cb cb) {
       uv__set_sys_error(loop, ENOMEM);
       return -1;
     }
+    req->eio->poll_data = loop;
 
   } else {
     /* sync */
@@ -600,6 +608,7 @@ int uv_fs_readlink(uv_loop_t* loop, uv_fs_t* req, const char* path,
   if (cb) {
     if ((req->eio = eio_readlink(path, EIO_PRI_DEFAULT, uv__fs_after, req))) {
       uv_ref(loop);
+      req->eio->poll_data = loop;
       return 0;
     } else {
       uv__set_sys_error(loop, ENOMEM);
@@ -698,6 +707,7 @@ int uv_queue_work(uv_loop_t* loop, uv_work_t* req, uv_work_cb work_cb,
     uv__set_sys_error(loop, ENOMEM);
     return -1;
   }
+  req->eio->poll_data = loop;
 
   return 0;
 }
