@@ -2508,6 +2508,7 @@ Isolate::Isolate() {
 #else
   use_sni = false;
 #endif
+  tick_time_head = 0;
   uncaught_exception_counter = 0;
   exit_code = 0;
   loop_ = (this == &defaultIsolate) ? uv_default_loop(): uv_loop_new();
