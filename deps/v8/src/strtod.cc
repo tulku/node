@@ -27,7 +27,7 @@
 
 #include <stdarg.h>
 #include <math.h>
-#include <limits>
+#include <limits.h>
 
 #include "globals.h"
 #include "utils.h"
