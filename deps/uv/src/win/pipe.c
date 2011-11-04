@@ -362,7 +362,7 @@ int uv_pipe_bind(uv_pipe_t* handle, const char* name) {
     if (errno == ERROR_ACCESS_DENIED) {
       uv__set_error(loop, UV_EADDRINUSE, errno);
     } else if (errno == ERROR_PATH_NOT_FOUND || errno == ERROR_INVALID_NAME) {
-      uv__set_error(loop, UV_EACCESS, errno);
+      uv__set_error(loop, UV_EACCES, errno);
     } else {
       uv__set_sys_error(loop, errno);
     }
@@ -956,7 +956,9 @@ static int uv_pipe_write_impl(uv_loop_t* loop, uv_write_t* req,
     return -1;
   }
 
-  if (send_handle && send_handle->type != UV_TCP) {
+  /* Only TCP server handles are supported for sharing. */
+  if (send_handle && (send_handle->type != UV_TCP ||
+      send_handle->flags & UV_HANDLE_CONNECTION)) {
     uv__set_artificial_error(loop, UV_ENOTSUP);
     return -1;
   }
@@ -989,9 +991,9 @@ static int uv_pipe_write_impl(uv_loop_t* loop, uv_write_t* req,
     /* Use the IPC framing protocol. */
     if (send_handle) {
       tcp_send_handle = (uv_tcp_t*)send_handle;
-      if (WSADuplicateSocketW(tcp_send_handle->socket, handle->ipc_pid,
+
+      if (uv_tcp_duplicate_socket(tcp_send_handle, handle->ipc_pid,
           &ipc_frame.socket_info)) {
-        uv__set_sys_error(loop, WSAGetLastError());
         return -1;
       }
       ipc_frame.header.flags |= UV_IPC_UV_STREAM;

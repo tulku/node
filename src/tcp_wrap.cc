@@ -1,3 +1,24 @@
+// Copyright Joyent, Inc. and other Node contributors.
+//
+// Permission is hereby granted, free of charge, to any person obtaining a
+// copy of this software and associated documentation files (the
+// "Software"), to deal in the Software without restriction, including
+// without limitation the rights to use, copy, modify, merge, publish,
+// distribute, sublicense, and/or sell copies of the Software, and to permit
+// persons to whom the Software is furnished to do so, subject to the
+// following conditions:
+//
+// The above copyright notice and this permission notice shall be included
+// in all copies or substantial portions of the Software.
+//
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+// OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+// MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN
+// NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,
+// DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
+// OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE
+// USE OR OTHER DEALINGS IN THE SOFTWARE.
+
 #include <node.h>
 #include <node_buffer.h>
 #include <req_wrap.h>
@@ -102,6 +123,10 @@ void TCPWrap::Initialize(Handle<Object> target) {
   NODE_SET_PROTOTYPE_METHOD(t, "getpeername", GetPeerName);
   NODE_SET_PROTOTYPE_METHOD(t, "setNoDelay", SetNoDelay);
   NODE_SET_PROTOTYPE_METHOD(t, "setKeepAlive", SetKeepAlive);
+
+#ifdef _WIN32
+  NODE_SET_PROTOTYPE_METHOD(t, "setSimultaneousAccepts", SetSimultaneousAccepts);
+#endif
 
   statics->tcpConstructor = Persistent<Function>::New(t->GetFunction());
 
@@ -254,6 +279,23 @@ Handle<Value> TCPWrap::SetKeepAlive(const Arguments& args) {
 
   return Undefined();
 }
+
+
+#ifdef _WIN32
+Handle<Value> TCPWrap::SetSimultaneousAccepts(const Arguments& args) {
+  HandleScope scope;
+
+  UNWRAP
+
+  bool enable = args[0]->BooleanValue();
+
+  int r = uv_tcp_simultaneous_accepts(&wrap->handle_, enable ? 1 : 0);
+  if (r)
+    SetErrno(uv_last_error(uv_default_loop()));
+
+  return Undefined();
+}
+#endif
 
 
 Handle<Value> TCPWrap::Bind(const Arguments& args) {

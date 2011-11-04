@@ -215,12 +215,12 @@ to the completion callback.
 
 Synchronous rmdir(2).
 
-### fs.mkdir(path, mode, [callback])
+### fs.mkdir(path, [mode], [callback])
 
 Asynchronous mkdir(2). No arguments other than a possible exception are given
-to the completion callback.
+to the completion callback. `mode` defaults to `0777`. 
 
-### fs.mkdirSync(path, mode)
+### fs.mkdirSync(path, [mode])
 
 Synchronous mkdir(2).
 
@@ -275,13 +275,13 @@ Synchronous open(2).
 ### fs.utimes(path, atime, mtime, callback)
 ### fs.utimesSync(path, atime, mtime)
 
-Change file timestamps.
+Change file timestamps of the file referenced by the supplied path.
 
-### fs.futimes(path, atime, mtime, callback)
-### fs.futimesSync(path, atime, mtime)
+### fs.futimes(fd, atime, mtime, callback)
+### fs.futimesSync(fd, atime, mtime)
 
-Change file timestamps with the difference that if filename refers to a
-symbolic link, then the link is not dereferenced.
+Change the file timestamps of a file referenced by the supplied file
+descriptor.
 
 ### fs.fsync(fd, callback)
 
