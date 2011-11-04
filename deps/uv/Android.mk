@@ -71,6 +71,7 @@ LOCAL_SRC_FILES := \
 	src/ares/inet_ntop.c \
 	src/unix/cares.c \
 	src/unix/core.c \
+	src/unix/dl.c \
 	src/unix/error.c \
 	src/unix/fs.c \
 	src/unix/linux.c \
