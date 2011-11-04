@@ -133,7 +133,7 @@ Synchronous lchmod(2).
 ### fs.stat(path, [callback])
 
 Asynchronous stat(2). The callback gets two arguments `(err, stats)` where
-`stats` is a [`fs.Stats`](#fs.Stats) object.  See the [fs.Stats](#fs.Stats)
+`stats` is a [fs.Stats](#fs.Stats) object.  See the [fs.Stats](#fs.Stats)
 section below for more information.
 
 ### fs.lstat(path, [callback])
@@ -215,12 +215,12 @@ to the completion callback.
 
 Synchronous rmdir(2).
 
-### fs.mkdir(path, mode, [callback])
+### fs.mkdir(path, [mode], [callback])
 
 Asynchronous mkdir(2). No arguments other than a possible exception are given
-to the completion callback.
+to the completion callback. `mode` defaults to `0777`. 
 
-### fs.mkdirSync(path, mode)
+### fs.mkdirSync(path, [mode])
 
 Synchronous mkdir(2).
 
@@ -275,13 +275,13 @@ Synchronous open(2).
 ### fs.utimes(path, atime, mtime, callback)
 ### fs.utimesSync(path, atime, mtime)
 
-Change file timestamps.
+Change file timestamps of the file referenced by the supplied path.
 
-### fs.futimes(path, atime, mtime, callback)
-### fs.futimesSync(path, atime, mtime)
+### fs.futimes(fd, atime, mtime, callback)
+### fs.futimesSync(fd, atime, mtime)
 
-Change file timestamps with the difference that if filename refers to a
-symbolic link, then the link is not dereferenced.
+Change the file timestamps of a file referenced by the supplied file
+descriptor.
 
 ### fs.fsync(fd, callback)
 
@@ -471,9 +471,9 @@ similar to this:
       ctime: Mon, 10 Oct 2011 23:24:11 GMT }
 
 Please note that `atime`, `mtime` and `ctime` are instances
-of [`Date`][MDN-Date] object and to compare the values of
+of [Date][MDN-Date] object and to compare the values of
 these objects you should use appropriate methods. For most
-general uses [`getTime()`][MDN-Date-getTime] will return
+general uses [getTime()][MDN-Date-getTime] will return
 the number of milliseconds elapsed since _1 January 1970
 00:00:00 UTC_ and this integer should be sufficient for
 any comparison, however there additional methods which can
@@ -485,7 +485,7 @@ be found in the [MDN JavaScript Reference][MDN-Date] page.
 
 ## fs.ReadStream
 
-`ReadStream` is a `Readable Stream`.
+`ReadStream` is a [Readable Stream](streams.html#readable_Stream).
 
 ### Event: 'open'
 
@@ -517,7 +517,7 @@ An example to read the last 10 bytes of a file which is 100 bytes long:
 
 ## fs.WriteStream
 
-`WriteStream` is a `Writable Stream`.
+`WriteStream` is a [Writable Stream](streams.html#writable_Stream).
 
 ### Event: 'open'
 

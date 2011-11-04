@@ -362,7 +362,7 @@ int uv_pipe_bind(uv_pipe_t* handle, const char* name) {
     if (errno == ERROR_ACCESS_DENIED) {
       uv__set_error(loop, UV_EADDRINUSE, errno);
     } else if (errno == ERROR_PATH_NOT_FOUND || errno == ERROR_INVALID_NAME) {
-      uv__set_error(loop, UV_EACCESS, errno);
+      uv__set_error(loop, UV_EACCES, errno);
     } else {
       uv__set_sys_error(loop, errno);
     }
@@ -949,7 +949,6 @@ static int uv_pipe_write_impl(uv_loop_t* loop, uv_write_t* req,
   int result;
   uv_tcp_t* tcp_send_handle;
   uv_write_t* ipc_header_req;
-  DWORD written;
   uv_ipc_frame_uv_stream ipc_frame;
 
   if (bufcnt != 1 && (bufcnt != 0 || !send_handle)) {
@@ -957,7 +956,9 @@ static int uv_pipe_write_impl(uv_loop_t* loop, uv_write_t* req,
     return -1;
   }
 
-  if (send_handle && send_handle->type != UV_TCP) {
+  /* Only TCP server handles are supported for sharing. */
+  if (send_handle && (send_handle->type != UV_TCP ||
+      send_handle->flags & UV_HANDLE_CONNECTION)) {
     uv__set_artificial_error(loop, UV_ENOTSUP);
     return -1;
   }
@@ -990,9 +991,9 @@ static int uv_pipe_write_impl(uv_loop_t* loop, uv_write_t* req,
     /* Use the IPC framing protocol. */
     if (send_handle) {
       tcp_send_handle = (uv_tcp_t*)send_handle;
-      if (WSADuplicateSocketW(tcp_send_handle->socket, handle->ipc_pid,
+
+      if (uv_tcp_duplicate_socket(tcp_send_handle, handle->ipc_pid,
           &ipc_frame.socket_info)) {
-        uv__set_sys_error(loop, WSAGetLastError());
         return -1;
       }
       ipc_frame.header.flags |= UV_IPC_UV_STREAM;
@@ -1038,7 +1039,7 @@ static int uv_pipe_write_impl(uv_loop_t* loop, uv_write_t* req,
                         &ipc_frame,
                         ipc_frame.header.flags & UV_IPC_UV_STREAM ?
                           sizeof(ipc_frame) : sizeof(ipc_frame.header),
-                        &written,
+                        NULL,
                         &ipc_header_req->overlapped);
     if (!result && GetLastError() != ERROR_IO_PENDING) {
       uv__set_sys_error(loop, GetLastError());
@@ -1047,10 +1048,11 @@ static int uv_pipe_write_impl(uv_loop_t* loop, uv_write_t* req,
 
     if (result) {
       /* Request completed immediately. */
-      req->queued_bytes = 0;
+      ipc_header_req->queued_bytes = 0;
     } else {
       /* Request queued by the kernel. */
-      req->queued_bytes = written;
+      ipc_header_req->queued_bytes = ipc_frame.header.flags & UV_IPC_UV_STREAM ?
+        sizeof(ipc_frame) : sizeof(ipc_frame.header);
       handle->write_queue_size += req->queued_bytes;
     }
 
@@ -1332,6 +1334,7 @@ void uv_process_pipe_write_req(uv_loop_t* loop, uv_pipe_t* handle,
     uv_write_t* req) {
   assert(handle->type == UV_NAMED_PIPE);
 
+  assert(handle->write_queue_size >= req->queued_bytes);
   handle->write_queue_size -= req->queued_bytes;
 
   if (handle->flags & UV_HANDLE_EMULATE_IOCP) {

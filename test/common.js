@@ -54,12 +54,8 @@ exports.indirectInstanceOf = function(obj, cls) {
 
 exports.ddCommand = function(filename, kilobytes) {
   if (process.platform == 'win32') {
-    // 'fsutil file createnew' cannot be used on an existing file. If it
-    // already exists delete it.
-    if (require('path').existsSync(filename)) {
-      require('fs').unlinkSync(filename);
-    }
-    return 'fsutil.exe file createnew "' + filename + '" ' + (kilobytes * 1024);
+    return '"' + process.argv[0] + '" "' + path.resolve(exports.fixturesDir,
+      'create-file.js') + '" "' + filename + '" ' + (kilobytes * 1024);
   } else {
     return 'dd if=/dev/zero of="' + filename + '" bs=1024 count=' + kilobytes;
   }
@@ -121,17 +117,6 @@ process.on('exit', function() {
     knownGlobals.push(Float32Array);
     knownGlobals.push(Float64Array);
     knownGlobals.push(DataView);
-  }
-
-  // repl pollution
-  if (global.hasOwnProperty('module')) {
-    knownGlobals.push(global.module);
-  }
-  if (global.hasOwnProperty('require')) {
-    knownGlobals.push(global.require);
-  }
-  if (global.hasOwnProperty('exports')) {
-    knownGlobals.push(global.exports);
   }
 
   for (var x in global) {

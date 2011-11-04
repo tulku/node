@@ -27,11 +27,17 @@ For example, you could add this to your bashrc file:
     alias node="env NODE_NO_READLINE=1 rlwrap node"
 
 
-### repl.start(prompt='> ', stream=process.stdin, eval=eval)
+### repl.start(prompt='> ', stream=process.stdin, eval=eval, useGlobal=false, ignoreUndefined=false)
 
 Starts a REPL with `prompt` as the prompt and `stream` for all I/O.  `prompt`
 is optional and defaults to `> `.  `stream` is optional and defaults to
 `process.stdin`. `eval` is optional too and defaults to async wrapper for `eval`.
+
+If `useGlobal` is set to true, then the repl will use the global object,
+instead of running scripts in a separate context.
+
+If `ignoreUndefined` is set to true, then the repl will not output return value
+of command if it's `undefined`.
 
 You can use your own `eval` function if it has following signature:
 
@@ -83,12 +89,28 @@ The special variable `_` (underscore) contains the result of the last expression
     > _ += 1
     4
 
-The REPL provides access to any variables in the global scope.
+The REPL provides access to any variables in the global scope. You can expose
+a variable to the REPL explicitly by assigning it to the `context` object
+associated with each `REPLServer`.  For example:
+
+    // repl_test.js
+    var repl = require("repl"),
+        msg = "message";
+
+    repl.start().context.m = msg;
+
+Things in the `context` object appear as local within the REPL:
+
+    mjr:~$ node repl_test.js
+    > m
+    'message'
 
 There are a few special REPL commands:
 
   - `.break` - While inputting a multi-line expression, sometimes you get lost
     or just don't care about completing it. `.break` will start over.
+  - `.clear` - Resets the `context` object to an empty object and clears any
+    multi-line expression.
   - `.exit` - Close the I/O stream, which will cause the REPL to exit.
   - `.help` - Show this list of special commands.
 

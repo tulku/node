@@ -27,12 +27,18 @@
 #include <ws2tcpip.h>
 #include <windows.h>
 
+#include "winapi.h"
+
 
 /*
  * MinGW is missing these too
  */
 #ifndef SO_UPDATE_CONNECT_CONTEXT
 # define SO_UPDATE_CONNECT_CONTEXT 0x7010
+#endif
+
+#ifndef TCP_KEEPALIVE
+# define TCP_KEEPALIVE 3
 #endif
 
 #ifndef IPV6_V6ONLY

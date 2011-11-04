@@ -137,6 +137,10 @@ typedef struct uv_buf_t {
 
 typedef int uv_file;
 
+/* Platform-specific definitions for uv_dlopen support. */
+typedef HMODULE uv_lib_t;
+#define UV_DYNAMIC FAR WINAPI
+
 RB_HEAD(uv_timer_tree_s, uv_timer_s);
 
 #define UV_LOOP_PRIVATE_FIELDS                                                \
@@ -243,6 +247,7 @@ RB_HEAD(uv_timer_tree_s, uv_timer_s);
 
 #define uv_tcp_server_fields              \
   uv_tcp_accept_t* accept_reqs;           \
+  unsigned int processed_accepts;         \
   uv_tcp_accept_t* pending_accepts;       \
   LPFN_ACCEPTEX func_acceptex;
 
@@ -313,7 +318,9 @@ RB_HEAD(uv_timer_tree_s, uv_timer_s);
   /* ansi parser state */                 \
   unsigned char ansi_parser_state;        \
   unsigned char ansi_csi_argc;            \
-  unsigned short ansi_csi_argv[4];
+  unsigned short ansi_csi_argv[4];        \
+  COORD saved_position;                   \
+  WORD saved_attributes;
 
 #define UV_TIMER_PRIVATE_FIELDS           \
   RB_ENTRY(uv_timer_s) tree_entry;        \

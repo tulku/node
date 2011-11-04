@@ -24,7 +24,9 @@
 #include <uv.h>
 
 #include <v8-debug.h>
-#include <node_dtrace.h>
+#ifdef HAVE_DTRACE
+# include <node_dtrace.h>
+#endif
 
 #include <locale.h>
 #include <signal.h>
@@ -61,7 +63,6 @@ typedef int mode_t;
 #endif
 
 #ifdef __POSIX__
-# include <dlfcn.h> /* dlopen(), dlsym() */
 # include <pwd.h> /* getpwnam() */
 # include <grp.h> /* getgrnam() */
 # ifndef ANDROID
@@ -1064,7 +1065,7 @@ void MakeCallback(Handle<Object> object,
                   Handle<Value> argv[]) {
   HandleScope scope;
 
-  Local<Value> callback_v = object->Get(String::New(method)); 
+  Local<Value> callback_v = object->Get(String::New(method));
   if (!callback_v->IsFunction()) {
     fprintf(stderr, "method = %s", method);
   }
@@ -1582,7 +1583,8 @@ v8::Handle<v8::Value> UVCounters(const v8::Arguments& args) {
 
   Local<Object> obj = Object::New();
 
-#define setc(name) obj->Set(String::New(#name), Integer::New(c->name));
+#define setc(name) \
+    obj->Set(String::New(#name), Integer::New(static_cast<int32_t>(c->name)));
 
   setc(eio_init)
   setc(req_init)
@@ -1640,8 +1642,6 @@ v8::Handle<v8::Value> MemoryUsage(const v8::Arguments& args) {
 }
 
 
-#ifdef __POSIX__
-
 Handle<Value> Kill(const Arguments& args) {
   HandleScope scope;
 
@@ -1649,82 +1649,94 @@ Handle<Value> Kill(const Arguments& args) {
     return ThrowException(Exception::Error(String::New("Bad argument.")));
   }
 
-  pid_t pid = args[0]->IntegerValue();
+  int pid = args[0]->IntegerValue();
   int sig = args[1]->Int32Value();
-  int r = kill(pid, sig);
+  uv_err_t err = uv_kill(pid, sig);
 
-  if (r != 0) return ThrowException(ErrnoException(errno, "kill"));
+  if (err.code != UV_OK) {
+    SetErrno(err);
+    return scope.Close(Integer::New(-1));
+  }
 
   return Undefined();
 }
 
 
-typedef void (*extInit)(Handle<Object> exports);
+typedef void (UV_DYNAMIC* extInit)(Handle<Object> exports);
 
 // DLOpen is node.dlopen(). Used to load 'module.node' dynamically shared
 // objects.
 Handle<Value> DLOpen(const v8::Arguments& args) {
-  node_module_struct compat_mod;
   HandleScope scope;
+  char symbol[1024], *base, *pos;
+  uv_lib_t lib;
+  node_module_struct compat_mod;
+  uv_err_t err;
+  int r;
 
-  if (args.Length() < 2) return Undefined();
+  if (args.Length() < 2) {
+    return Undefined();
+  }
 
   String::Utf8Value filename(args[0]->ToString()); // Cast
   Local<Object> target = args[1]->ToObject(); // Cast
 
-  // Actually call dlopen().
-  // FIXME: This is a blocking function and should be called asynchronously!
-  // This function should be moved to file.cc and use libeio to make this
-  // system call.
-  void *handle = dlopen(*filename, RTLD_LAZY);
-
-  // Handle errors.
-  if (handle == NULL) {
-    Local<Value> exception = Exception::Error(String::New(dlerror()));
-    return ThrowException(exception);
+  err = uv_dlopen(*filename, &lib);
+  if (err.code != UV_OK) {
+    SetErrno(err);
+    return scope.Close(Integer::New(-1));
   }
 
-  String::Utf8Value symbol(args[0]->ToString());
-  char *symstr = NULL;
-  {
-    char *sym = *symbol;
-    char *p = strrchr(sym, '/');
-    if (p != NULL) {
-      sym = p+1;
-    }
+  String::Utf8Value path(args[0]->ToString());
+  base = *path;
 
-    p = strrchr(sym, '.');
-    if (p != NULL) {
-      *p = '\0';
+  /* Find the shared library filename within the full path. */
+#ifdef __POSIX__
+  pos = strrchr(base, '/');
+  if (pos != NULL) {
+    base = pos + 1;
+  }
+#else // Windows
+  for (;;) {
+    pos = strpbrk(base, "\\/:");
+    if (pos == NULL) {
+      break;
     }
+    base = pos + 1;
+  }
+#endif
 
-    size_t slen = strlen(sym);
-    symstr = static_cast<char*>(calloc(1, slen + sizeof("_module") + 1));
-    memcpy(symstr, sym, slen);
-    memcpy(symstr+slen, "_module", sizeof("_module") + 1);
+  /* Strip the .node extension. */
+  pos = strrchr(base, '.');
+  if (pos != NULL) {
+    *pos = '\0';
+  }
+
+  /* Add the `_module` suffix to the extension name. */
+  r = snprintf(symbol, sizeof symbol, "%s_module", base);
+  if (r <= 0 || r >= sizeof symbol) {
+    err.code = UV_ENOMEM;
+    SetErrno(err);
+    return scope.Close(Integer::New(-1));
   }
 
   // Get the init() function from the dynamically shared object.
-  node_module_struct *mod = static_cast<node_module_struct *>(dlsym(handle, symstr));
-  free(symstr);
-  symstr = NULL;
+  node_module_struct *mod;
+  err = uv_dlsym(lib, symbol, reinterpret_cast<void**>(&mod));
 
-  // Error out if not found.
-  if (mod == NULL) {
+  if (err.code != UV_OK) {
     /* Start Compatibility hack: Remove once everyone is using NODE_MODULE macro */
     memset(&compat_mod, 0, sizeof compat_mod);
 
     mod = &compat_mod;
     mod->version = NODE_MODULE_VERSION;
 
-    void *init_handle = dlsym(handle, "init");
-    if (init_handle == NULL) {
-      dlclose(handle);
-      Local<Value> exception =
-        Exception::Error(String::New("No module symbol found in module."));
-      return ThrowException(exception);
+    err = uv_dlsym(lib, "init", reinterpret_cast<void**>(&mod->register_func));
+    if (err.code != UV_OK) {
+      uv_dlclose(lib);
+      SetErrno(err);
+      return scope.Close(Integer::New(-1));
     }
-    mod->register_func = (extInit)(init_handle);
     /* End Compatibility hack */
   }
 
@@ -1742,47 +1754,6 @@ Handle<Value> DLOpen(const v8::Arguments& args) {
   return Undefined();
 }
 
-#endif // __POSIX__
-
-
-// TODO remove me before 0.4
-Handle<Value> Compile(const Arguments& args) {
-  HandleScope scope;
-
-
-  if (args.Length() < 2) {
-    return ThrowException(Exception::TypeError(
-          String::New("needs two arguments.")));
-  }
-
-  static bool shown_error_message = false;
-
-  if (!shown_error_message) {
-    shown_error_message = true;
-    fprintf(stderr, "(node) process.compile should not be used. "
-                    "Use require('vm').runInThisContext instead.\n");
-  }
-
-  Local<String> source = args[0]->ToString();
-  Local<String> filename = args[1]->ToString();
-
-  TryCatch try_catch;
-
-  Local<v8::Script> script = v8::Script::Compile(source, filename);
-  if (try_catch.HasCaught()) {
-    // Hack because I can't get a proper stacktrace on SyntaxError
-    ReportException(try_catch, true);
-    exit(1);
-  }
-
-  Local<Value> result = script->Run();
-  if (try_catch.HasCaught()) {
-    ReportException(try_catch, false);
-    exit(1);
-  }
-
-  return scope.Close(result);
-}
 
 static void OnFatalError(const char* location, const char* message) {
   if (location) {
@@ -2162,7 +2133,6 @@ Handle<Object> SetupProcessObject(int argc, char *argv[]) {
 
 
   // define various internal methods
-  NODE_SET_METHOD(process, "compile", Compile);
   NODE_SET_METHOD(process, "_needTickCallback", NeedTickCallback);
   NODE_SET_METHOD(process, "reallyExit", Exit);
   NODE_SET_METHOD(process, "chdir", Chdir);
@@ -2176,10 +2146,11 @@ Handle<Object> SetupProcessObject(int argc, char *argv[]) {
 
   NODE_SET_METHOD(process, "setgid", SetGid);
   NODE_SET_METHOD(process, "getgid", GetGid);
+#endif // __POSIX__
+
+  NODE_SET_METHOD(process, "_kill", Kill);
 
   NODE_SET_METHOD(process, "dlopen", DLOpen);
-  NODE_SET_METHOD(process, "_kill", Kill);
-#endif // __POSIX__
 
   NODE_SET_METHOD(process, "uptime", Uptime);
   NODE_SET_METHOD(process, "memoryUsage", MemoryUsage);
@@ -2278,7 +2249,6 @@ static void ParseDebugOpt(const char* arg) {
 static void PrintHelp() {
   printf("Usage: node [options] [ -e script | script.js ] [arguments] \n"
          "       node debug script.js [arguments] \n"
-         "       node cluster script.js [arguments] \n"
          "\n"
          "Options:\n"
          "  -v, --version        print node's version\n"

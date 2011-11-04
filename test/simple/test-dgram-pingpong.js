@@ -19,7 +19,7 @@
 // OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE
 // USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-// libuv-broken
+
 
 
 var common = require('../common');
@@ -71,8 +71,7 @@ function pingPongTest(port, host) {
         client.send(buf, 0, buf.length, port, 'localhost');
       } else {
         sent_final_ping = true;
-        client.send(buf, 0, buf.length, port, 'localhost');
-        process.nextTick(function() {
+        client.send(buf, 0, buf.length, port, 'localhost', function() {
           client.close();
         });
       }
