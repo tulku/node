@@ -28,7 +28,7 @@
 #ifndef V8_CONVERSIONS_H_
 #define V8_CONVERSIONS_H_
 
-#include <limits>
+#include <limits.h>
 
 #include "utils.h"
 
