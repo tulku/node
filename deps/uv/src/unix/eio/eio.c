@@ -388,8 +388,8 @@ tvdiff (struct timeval *tv1, struct timeval *tv2)
 
 static unsigned int started, idle, wanted = 4;
 
-static void (*want_poll_cb) (void);
-static void (*done_poll_cb) (void);
+static void (*want_poll_cb) (eio_poll_data);
+static void (*done_poll_cb) (eio_poll_data);
  
 static unsigned int max_poll_time;     /* reslock */
 static unsigned int max_poll_reqs;     /* reslock */
@@ -574,7 +574,7 @@ reqq_shift (etp_reqq *q)
 }
 
 static int ecb_cold
-etp_init (void (*want_poll)(void), void (*done_poll)(void))
+etp_init (void (*want_poll)(eio_poll_data), void (*done_poll)(eio_poll_data))
 {
   X_MUTEX_CREATE (wrklock);
   X_MUTEX_CREATE (reslock);
@@ -685,7 +685,7 @@ etp_poll (void)
           --npending;
 
           if (!res_queue.size && done_poll_cb)
-            done_poll_cb ();
+            done_poll_cb (req->poll_data);
         }
 
       X_UNLOCK (reslock);
@@ -753,7 +753,7 @@ etp_submit (ETP_REQ *req)
       ++npending;
 
       if (!reqq_push (&res_queue, req) && want_poll_cb)
-        want_poll_cb ();
+        want_poll_cb (req->poll_data);
 
       X_UNLOCK (reslock);
     }
@@ -2093,7 +2093,7 @@ X_THREAD_PROC (etp_proc)
       ++npending;
 
       if (!reqq_push (&res_queue, req) && want_poll_cb)
-        want_poll_cb ();
+        want_poll_cb (req->poll_data);
 
       self->req = 0;
       etp_worker_clear (self);
@@ -2112,7 +2112,7 @@ quit:
 /*****************************************************************************/
 
 int ecb_cold
-eio_init (void (*want_poll)(void), void (*done_poll)(void))
+eio_init (void (*want_poll)(eio_poll_data), void (*done_poll)(eio_poll_data))
 {
 #if !HAVE_PREADWRITE
   X_MUTEX_CREATE (preadwritelock);

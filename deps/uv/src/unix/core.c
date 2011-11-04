@@ -673,6 +673,7 @@ int uv_getaddrinfo(uv_loop_t* loop,
       uv_getaddrinfo_done, handle);
   assert(req);
   assert(req->data == handle);
+  req->poll_data = loop;
 
   return 0;
 }
