@@ -9,10 +9,17 @@ which share server ports.
 
     var cluster = require('cluster');
     var http = require('http');
+    var numCPUs = require('os').cpus().length;
 
     if (cluster.isMaster) {
-      // Start the master process, fork workers.
-      cluster.startMaster({ workers: 2 });
+      // Fork workers.
+      for (var i = 0; i < numCPUs; i++) {
+        cluster.fork();
+      }
+
+      cluster.on('death', function(worker) {
+        console.log('worker ' + worker.pid + ' died');
+      });
     } else {
       // Worker processes have a http server.
       http.Server(function(req, res) {
@@ -27,37 +34,64 @@ Running node will now share port 8000 between the workers:
     Worker 2438 online
     Worker 2437 online
 
-### exports.startMaster([options])
+The difference between `cluster.fork()` and `child_process.fork()` is simply
+that cluster allows TCP servers to be shared between workers. `cluster.fork`
+is implemented on top of `child_process.fork`. The message passing API that
+is available with `child_process.fork` is available with `cluster` as well.
+As an example, here is a cluster which keeps count of the number of requests
+in the master process via message passing:
 
-  Spawns the initial worker processes, one per CPU by default.
-
-  The following options are supported:
-
-  - `workerFilename`: script to execute in the worker process, defaults to
-    `process.argv[1]`
-  - `args`: worker program arguments, defaulting to `process.argv.slice(2)`
-  - `workers`: the number of workers, defaulting to `os.cpus().length`
-
-### exports.spawnWorker([options])
-
-   Spawn a new worker process. This is called within `cluster.startMaster()`,
-   however it is useful to implement worker resuscitation as described below
-   in the "Common patterns" section.
-
-   The `options` available are identical to `cluster.startMaster()`.
-
-## Common patterns
-
-## Worker resuscitation
-
-The following is an example of how you may implement worker resuscitation,
-spawning a new worker process when another exits.
+    var cluster = require('cluster');
+    var http = require('http');
+    var numReqs = 0;
 
     if (cluster.isMaster) {
-      cluster.startMaster();
-      process.on('SIGCHLD', function(){
-        console.log('worker killed');
-        cluster.spawnWorker();
-      });
+      // Fork workers.
+      for (var i = 0; i < 2; i++) {
+        var worker = cluster.fork();
+
+        worker.on('message', function(msg) {
+          if (msg.cmd && msg.cmd == 'notifyRequest') {
+            numReqs++;
+          }
+        });
+      }
+
+      setInterval(function() {
+        console.log("numReqs =", numReqs);
+      }, 1000);
+    } else {
+      // Worker processes have a http server.
+      http.Server(function(req, res) {
+        res.writeHead(200);
+        res.end("hello world\n");
+        // Send message to master process
+        process.send({ cmd: 'notifyRequest' });
+      }).listen(8000);
     }
 
+
+
+### cluster.fork()
+
+Spawn a new worker process. This can only be called from the master process.
+
+### cluster.isMaster
+### cluster.isWorker
+
+Boolean flags to determine if the current process is a master or a worker
+process in a cluster. A process `isMaster` if `process.env.NODE_WORKER_ID`
+is undefined.
+
+### Event: 'death'
+
+When any of the workers die the cluster module will emit the 'death' event.
+This can be used to restart the worker by calling `fork()` again.
+
+    cluster.on('death', function(worker) {
+      console.log('worker ' + worker.pid + ' died. restart...');
+      cluster.fork();
+    });
+  
+Different techniques can be used to restart the worker depending on the
+application.

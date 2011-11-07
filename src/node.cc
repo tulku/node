@@ -567,234 +567,6 @@ static inline const char *errno_string(int errorno) {
   ERRNO_CASE(EXDEV);
 #endif
 
-#ifdef WSAEINTR
-  ERRNO_CASE(WSAEINTR);
-#endif
-
-#ifdef WSAEBADF
-  ERRNO_CASE(WSAEBADF);
-#endif
-
-#ifdef WSAEACCES
-  ERRNO_CASE(WSAEACCES);
-#endif
-
-#ifdef WSAEFAULT
-  ERRNO_CASE(WSAEFAULT);
-#endif
-
-#ifdef WSAEINVAL
-  ERRNO_CASE(WSAEINVAL);
-#endif
-
-#ifdef WSAEMFILE
-  ERRNO_CASE(WSAEMFILE);
-#endif
-
-#ifdef WSAEWOULDBLOCK
-  ERRNO_CASE(WSAEWOULDBLOCK);
-#endif
-
-#ifdef WSAEINPROGRESS
-  ERRNO_CASE(WSAEINPROGRESS);
-#endif
-
-#ifdef WSAEALREADY
-  ERRNO_CASE(WSAEALREADY);
-#endif
-
-#ifdef WSAENOTSOCK
-  ERRNO_CASE(WSAENOTSOCK);
-#endif
-
-#ifdef WSAEDESTADDRREQ
-  ERRNO_CASE(WSAEDESTADDRREQ);
-#endif
-
-#ifdef WSAEMSGSIZE
-  ERRNO_CASE(WSAEMSGSIZE);
-#endif
-
-#ifdef WSAEPROTOTYPE
-  ERRNO_CASE(WSAEPROTOTYPE);
-#endif
-
-#ifdef WSAENOPROTOOPT
-  ERRNO_CASE(WSAENOPROTOOPT);
-#endif
-
-#ifdef WSAEPROTONOSUPPORT
-  ERRNO_CASE(WSAEPROTONOSUPPORT);
-#endif
-
-#ifdef WSAESOCKTNOSUPPORT
-  ERRNO_CASE(WSAESOCKTNOSUPPORT);
-#endif
-
-#ifdef WSAEOPNOTSUPP
-  ERRNO_CASE(WSAEOPNOTSUPP);
-#endif
-
-#ifdef WSAEPFNOSUPPORT
-  ERRNO_CASE(WSAEPFNOSUPPORT);
-#endif
-
-#ifdef WSAEAFNOSUPPORT
-  ERRNO_CASE(WSAEAFNOSUPPORT);
-#endif
-
-#ifdef WSAEADDRINUSE
-  ERRNO_CASE(WSAEADDRINUSE);
-#endif
-
-#ifdef WSAEADDRNOTAVAIL
-  ERRNO_CASE(WSAEADDRNOTAVAIL);
-#endif
-
-#ifdef WSAENETDOWN
-  ERRNO_CASE(WSAENETDOWN);
-#endif
-
-#ifdef WSAENETUNREACH
-  ERRNO_CASE(WSAENETUNREACH);
-#endif
-
-#ifdef WSAENETRESET
-  ERRNO_CASE(WSAENETRESET);
-#endif
-
-#ifdef WSAECONNABORTED
-  ERRNO_CASE(WSAECONNABORTED);
-#endif
-
-#ifdef WSAECONNRESET
-  ERRNO_CASE(WSAECONNRESET);
-#endif
-
-#ifdef WSAENOBUFS
-  ERRNO_CASE(WSAENOBUFS);
-#endif
-
-#ifdef WSAEISCONN
-  ERRNO_CASE(WSAEISCONN);
-#endif
-
-#ifdef WSAENOTCONN
-  ERRNO_CASE(WSAENOTCONN);
-#endif
-
-#ifdef WSAESHUTDOWN
-  ERRNO_CASE(WSAESHUTDOWN);
-#endif
-
-#ifdef WSAETOOMANYREFS
-  ERRNO_CASE(WSAETOOMANYREFS);
-#endif
-
-#ifdef WSAETIMEDOUT
-  ERRNO_CASE(WSAETIMEDOUT);
-#endif
-
-#ifdef WSAECONNREFUSED
-  ERRNO_CASE(WSAECONNREFUSED);
-#endif
-
-#ifdef WSAELOOP
-  ERRNO_CASE(WSAELOOP);
-#endif
-
-#ifdef WSAENAMETOOLONG
-  ERRNO_CASE(WSAENAMETOOLONG);
-#endif
-
-#ifdef WSAEHOSTDOWN
-  ERRNO_CASE(WSAEHOSTDOWN);
-#endif
-
-#ifdef WSAEHOSTUNREACH
-  ERRNO_CASE(WSAEHOSTUNREACH);
-#endif
-
-#ifdef WSAENOTEMPTY
-  ERRNO_CASE(WSAENOTEMPTY);
-#endif
-
-#ifdef WSAEPROCLIM
-  ERRNO_CASE(WSAEPROCLIM);
-#endif
-
-#ifdef WSAEUSERS
-  ERRNO_CASE(WSAEUSERS);
-#endif
-
-#ifdef WSAEDQUOT
-  ERRNO_CASE(WSAEDQUOT);
-#endif
-
-#ifdef WSAESTALE
-  ERRNO_CASE(WSAESTALE);
-#endif
-
-#ifdef WSAEREMOTE
-  ERRNO_CASE(WSAEREMOTE);
-#endif
-
-#ifdef WSASYSNOTREADY
-  ERRNO_CASE(WSASYSNOTREADY);
-#endif
-
-#ifdef WSAVERNOTSUPPORTED
-  ERRNO_CASE(WSAVERNOTSUPPORTED);
-#endif
-
-#ifdef WSANOTINITIALISED
-  ERRNO_CASE(WSANOTINITIALISED);
-#endif
-
-#ifdef WSAEDISCON
-  ERRNO_CASE(WSAEDISCON);
-#endif
-
-#ifdef WSAENOMORE
-  ERRNO_CASE(WSAENOMORE);
-#endif
-
-#ifdef WSAECANCELLED
-  ERRNO_CASE(WSAECANCELLED);
-#endif
-
-#ifdef WSAEINVALIDPROCTABLE
-  ERRNO_CASE(WSAEINVALIDPROCTABLE);
-#endif
-
-#ifdef WSAEINVALIDPROVIDER
-  ERRNO_CASE(WSAEINVALIDPROVIDER);
-#endif
-
-#ifdef WSAEPROVIDERFAILEDINIT
-  ERRNO_CASE(WSAEPROVIDERFAILEDINIT);
-#endif
-
-#ifdef WSASYSCALLFAILURE
-  ERRNO_CASE(WSASYSCALLFAILURE);
-#endif
-
-#ifdef WSASERVICE_NOT_FOUND
-  ERRNO_CASE(WSASERVICE_NOT_FOUND);
-#endif
-
-#ifdef WSATYPE_NOT_FOUND
-  ERRNO_CASE(WSATYPE_NOT_FOUND);
-#endif
-
-#ifdef WSA_E_NO_MORE
-  ERRNO_CASE(WSA_E_NO_MORE);
-#endif
-
-#ifdef WSA_E_CANCELLED
-  ERRNO_CASE(WSA_E_CANCELLED);
-#endif
-
   default: return "";
   }
 }
@@ -956,11 +728,7 @@ Local<Value> Isolate::ErrnoException(int errorno,
   Local<Value> e;
   Local<String> estring = String::NewSymbol(errno_string(errorno));
   if (!msg[0]) {
-#ifdef __POSIX__
     msg = strerror(errorno);
-#else // __MINGW32__
-    msg = winapi_strerror(errorno);
-#endif
   }
   Local<String> message = String::NewSymbol(msg);
 
@@ -991,6 +759,43 @@ Local<Value> Isolate::ErrnoException(int errorno,
   if (syscall) obj->Set(syscall_symbol, String::NewSymbol(syscall));
   return e;
 }
+
+
+#ifdef _WIN32
+Local<Value> WinapiErrnoException(int errorno,
+                                  const char* syscall,
+                                  const char* msg,
+                                  const char* path) {
+  Local<Value> e;
+  if (!msg || !msg[0]) {
+    msg = winapi_strerror(errorno);
+  }
+  Local<String> message = String::NewSymbol(msg);
+
+  if (syscall_symbol.IsEmpty()) {
+    syscall_symbol = NODE_PSYMBOL("syscall");
+    errno_symbol = NODE_PSYMBOL("errno");
+    errpath_symbol = NODE_PSYMBOL("path");
+    code_symbol = NODE_PSYMBOL("code");
+  }
+
+  if (path) {
+    Local<String> cons1 = String::Concat(message, String::NewSymbol(" '"));
+    Local<String> cons2 = String::Concat(cons1, String::New(path));
+    Local<String> cons3 = String::Concat(cons2, String::NewSymbol("'"));
+    e = Exception::Error(cons3);
+  } else {
+    e = Exception::Error(message);
+  }
+
+  Local<Object> obj = e->ToObject();
+
+  obj->Set(errno_symbol, Integer::New(errorno));
+  if (path) obj->Set(errpath_symbol, String::New(path));
+  if (syscall) obj->Set(syscall_symbol, String::NewSymbol(syscall));
+  return e;
+}
+#endif
 
 
 Handle<Value> FromConstructorTemplate(Persistent<FunctionTemplate>& t,
@@ -1634,7 +1439,9 @@ Handle<Value> DLOpen(const v8::Arguments& args) {
   int r;
 
   if (args.Length() < 2) {
-    return Undefined();
+    Local<Value> exception = Exception::Error(
+        String::New("process.dlopen takes exactly 2 arguments."));
+    return ThrowException(exception);
   }
 
   String::Utf8Value filename(args[0]->ToString()); // Cast
@@ -1642,8 +1449,10 @@ Handle<Value> DLOpen(const v8::Arguments& args) {
 
   err = uv_dlopen(*filename, &lib);
   if (err.code != UV_OK) {
-    SetErrno(err);
-    return scope.Close(Integer::New(-1));
+    Local<Value> exception = Exception::Error(
+        String::Concat(String::New("Unable to load shared library "),
+        args[0]->ToString()));
+    return ThrowException(exception);
   }
 
   String::Utf8Value path(args[0]->ToString());
@@ -1674,9 +1483,9 @@ Handle<Value> DLOpen(const v8::Arguments& args) {
   /* Add the `_module` suffix to the extension name. */
   r = snprintf(symbol, sizeof symbol, "%s_module", base);
   if (r <= 0 || r >= sizeof symbol) {
-    err.code = UV_ENOMEM;
-    SetErrno(err);
-    return scope.Close(Integer::New(-1));
+    Local<Value> exception =
+        Exception::Error(String::New("Out of memory."));
+    return ThrowException(exception);
   }
 
   // Get the init() function from the dynamically shared object.
@@ -1693,15 +1502,16 @@ Handle<Value> DLOpen(const v8::Arguments& args) {
     err = uv_dlsym(lib, "init", reinterpret_cast<void**>(&mod->register_func));
     if (err.code != UV_OK) {
       uv_dlclose(lib);
-      SetErrno(err);
-      return scope.Close(Integer::New(-1));
+      Local<Value> exception = Exception::Error(
+          String::New("Out of memory."));
+      return ThrowException(exception);
     }
     /* End Compatibility hack */
   }
 
   if (mod->version != NODE_MODULE_VERSION) {
-    Local<Value> exception =
-      Exception::Error(String::New("Module version mismatch, refusing to load."));
+    Local<Value> exception = Exception::Error(
+        String::New("Module version mismatch, refusing to load."));
     return ThrowException(exception);
   }
 
@@ -1998,6 +1808,8 @@ Handle<Object> Isolate::GetFeatures() {
 }
 
 
+static Handle<Value> DebugProcess(const Arguments& args);
+
 Handle<Object> Isolate::SetupProcessObject(int argc, char *argv[]) {
   HandleScope scope;
 
@@ -2115,6 +1927,8 @@ Handle<Object> Isolate::SetupProcessObject(int argc, char *argv[]) {
 #endif // __POSIX__
 
   NODE_SET_METHOD(process, "_kill", Kill);
+
+  NODE_SET_METHOD(process, "_debugProcess", DebugProcess);
 
   NODE_SET_METHOD(process, "dlopen", DLOpen);
 
@@ -2311,9 +2125,15 @@ void NodeOptions::SetResourceConstraints() {
   }
 }
 
+
+  static v8::Isolate* node_isolate = NULL;
 static volatile bool debugger_running = false;
 
-void EnableDebug(bool wait_connect) {
+static void EnableDebug(bool wait_connect) {
+  // If we're called from another thread, make sure to enter the right
+  // v8 isolate.
+  node_isolate->Enter();
+
   // Start the debug thread and it's associated TCP server on port 5858.
   bool r = Debug::EnableAgent("node " NODE_VERSION, options.debug_port);
 
@@ -2330,55 +2150,208 @@ void EnableDebug(bool wait_connect) {
 
   // Print out some information.
   fprintf(stderr, "debugger listening on port %d\n", options.debug_port);
+  fflush(stderr);
 
   debugger_running = true;
+
+  node_isolate->Exit();
 }
 
 
 #ifdef __POSIX__
 void EnableDebugSignalHandler(int signal) {
   // Break once process will return execution to v8
-  v8::Debug::DebugBreak();
+  v8::Debug::DebugBreak(node_isolate);
 
   if (!debugger_running) {
     fprintf(stderr, "Hit SIGUSR1 - starting debugger agent.\n");
     EnableDebug(false);
   }
 }
-#endif // __POSIX__
-
-#if defined(__MINGW32__) || defined(_MSC_VER)
-bool EnableDebugSignalHandler(DWORD signal) {
-  if (signal == CTRL_C_EVENT) BREAK_AND_EXIT(1);
-  if (signal != CTRL_BREAK_EVENT) return false;
-
-  // Break once process will return execution to v8
-  v8::Debug::DebugBreak();
-
-  if (!debugger_running) {
-    fprintf(stderr, "Hit Ctrl+Break - starting debugger agent.\n");
-    EnableDebug(false);
-    return true;
-  } else {
-    // Run default system action (terminate)
-    return false;
-  }
-
-}
-#endif
 
 
-#ifdef __POSIX__
-
-int RegisterSignalHandler(int signal, void (*handler)(int)) {
+static void RegisterSignalHandler(int signal, void (*handler)(int)) {
   struct sigaction sa;
 
   memset(&sa, 0, sizeof(sa));
   sa.sa_handler = handler;
   sigfillset(&sa.sa_mask);
-  return sigaction(signal, &sa, NULL);
+  sigaction(signal, &sa, NULL);
+}
+
+
+Handle<Value> DebugProcess(const Arguments& args) {
+  HandleScope scope;
+
+  if (args.Length() != 1) {
+    return ThrowException(Exception::Error(
+        String::New("Invalid number of arguments.")));
+  }
+
+  pid_t pid;
+  int r;
+
+  pid = args[0]->IntegerValue();
+  r = kill(pid, SIGUSR1);
+  if (r != 0) {
+    return ThrowException(Isolate::GetCurrent()->ErrnoException(errno, "kill"));
+  }
+
+  return Undefined();
 }
 #endif // __POSIX__
+
+#ifdef _WIN32
+DWORD WINAPI EnableDebugThreadProc(void* arg) {
+  // Break once process will return execution to v8
+  if (!debugger_running) {
+    for (int i = 0; i < 1; i++) {
+      fprintf(stderr, "Starting debugger agent.\r\n");
+      fflush(stderr);
+      EnableDebug(false);
+    }
+  }
+
+  v8::Debug::DebugBreak();
+
+  return 0;
+}
+
+
+static int GetDebugSignalHandlerMappingName(DWORD pid, char* buf, size_t buf_len) {
+  return snprintf(buf, buf_len, "node-debug-handler-%u", pid);
+}
+
+
+static int RegisterDebugSignalHandler() {
+  char mapping_name[32];
+  HANDLE mapping_handle;
+  DWORD pid;
+  LPTHREAD_START_ROUTINE* handler;
+
+  pid = GetCurrentProcessId();
+
+  if (GetDebugSignalHandlerMappingName(pid,
+                                       mapping_name,
+                                       sizeof mapping_name) < 0) {
+    return -1;
+  }
+
+  mapping_handle = CreateFileMappingA(INVALID_HANDLE_VALUE,
+                                      NULL,
+                                      PAGE_READWRITE,
+                                      0,
+                                      sizeof *handler,
+                                      mapping_name);
+  if (mapping_handle == NULL) {
+    return -1;
+  }
+
+  handler = (LPTHREAD_START_ROUTINE*) MapViewOfFile(mapping_handle,
+                                                    FILE_MAP_ALL_ACCESS,
+                                                    0,
+                                                    0,
+                                                    sizeof *handler);
+  if (handler == NULL) {
+    CloseHandle(mapping_handle);
+    return -1;
+  }
+
+  *handler = EnableDebugThreadProc;
+
+  UnmapViewOfFile((void*) handler);
+
+  return 0;
+}
+
+
+static Handle<Value> DebugProcess(const Arguments& args) {
+  HandleScope scope;
+  Handle<Value> rv = Undefined();
+  DWORD pid;
+  HANDLE process = NULL;
+  HANDLE thread = NULL;
+  HANDLE mapping = NULL;
+  char mapping_name[32];
+  LPTHREAD_START_ROUTINE* handler = NULL;
+
+  if (args.Length() != 1) {
+    rv = ThrowException(Exception::Error(String::New("Invalid number of arguments.")));
+    goto out;
+  }
+
+  pid = (DWORD) args[0]->IntegerValue();
+
+  process = OpenProcess(PROCESS_CREATE_THREAD | PROCESS_QUERY_INFORMATION |
+                            PROCESS_VM_OPERATION | PROCESS_VM_WRITE |
+                            PROCESS_VM_READ,
+                        FALSE,
+                        pid);
+  if (process == NULL) {
+    rv = ThrowException(WinapiErrnoException(GetLastError(), "OpenProcess"));
+    goto out;
+  }
+
+  if (GetDebugSignalHandlerMappingName(pid,
+                                       mapping_name,
+                                       sizeof mapping_name) < 0) {
+    rv = ThrowException(ErrnoException(errno, "sprintf"));
+    goto out;
+  }
+
+  mapping = OpenFileMapping(FILE_MAP_READ, FALSE, mapping_name);
+  if (mapping == NULL) {
+    rv = ThrowException(WinapiErrnoException(GetLastError(), "sprintf"));
+    goto out;
+  }
+
+  handler = (LPTHREAD_START_ROUTINE*) MapViewOfFile(mapping,
+                                                    FILE_MAP_READ,
+                                                    0,
+                                                    0,
+                                                    sizeof *handler);
+  if (handler == NULL || *handler == NULL) {
+    rv = ThrowException(WinapiErrnoException(GetLastError(), "MapViewOfFile"));
+    goto out;
+  }
+
+  thread = CreateRemoteThread(process,
+                              NULL,
+                              0,
+                              *handler,
+                              NULL,
+                              0,
+                              NULL);
+  if (thread == NULL) {
+    rv = ThrowException(WinapiErrnoException(GetLastError(),
+                                             "CreateRemoteThread"));
+    goto out;
+  }
+
+  // Wait for the thread to terminate
+  if (WaitForSingleObject(thread, INFINITE) != WAIT_OBJECT_0) {
+    rv = ThrowException(WinapiErrnoException(GetLastError(),
+                                             "WaitForSingleObject"));
+    goto out;
+  }
+
+ out:
+  if (process != NULL) {
+   CloseHandle(process);
+  }
+  if (thread != NULL) {
+    CloseHandle(thread);
+  }
+  if (handler != NULL) {
+    UnmapViewOfFile(handler);
+  }
+  if (mapping != NULL) {
+    CloseHandle(mapping);
+  }
+
+  return Undefined();
+}
+#endif // _WIN32
 
 
 int Isolate::Init(int argc, char *argv[]) {
@@ -2413,6 +2386,7 @@ int Isolate::Init(int argc, char *argv[]) {
   // Set the callback DebugMessageDispatch which is called from the debug
   // thread.
   Debug::SetDebugMessageDispatchHandler(node::DebugMessageDispatch);
+
   // Initialize the async watcher. DebugMessageCallback() is called from the
   // main thread to execute a random bit of javascript - which will give V8
   // control so it can handle whatever new message had been received on the
@@ -2421,6 +2395,21 @@ int Isolate::Init(int argc, char *argv[]) {
       node::DebugMessageCallback);
   // unref it so that we exit the event loop despite it being active.
   uv_unref(Loop());
+
+  // Fetch a reference to the main isolate, so we have a reference to it
+  // even when we need it to access it from another (debugger) thread.
+  node_isolate = v8::Isolate::GetCurrent();
+
+  // If the --debug flag was specified then initialize the debug thread.
+  if (options.use_debug_agent) {
+    EnableDebug(options.debug_wait_connect);
+  } else {
+#ifdef _WIN32
+    RegisterDebugSignalHandler();
+#else // Posix
+    RegisterSignalHandler(SIGUSR1, EnableDebugSignalHandler);
+#endif // __POSIX__
+  }
 
   return 0;
 }
