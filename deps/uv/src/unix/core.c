@@ -162,6 +162,7 @@ uv_loop_t* uv_loop_new() {
   uv_loop_t* loop = calloc(1, sizeof(uv_loop_t));
   loop->ev = ev_loop_new(0);
   ev_set_userdata(loop->ev, loop);
+  eio_channel_init (&loop->uv_eio_channel, loop);
   return loop;
 }
 
@@ -182,6 +183,7 @@ uv_loop_t* uv_default_loop() {
     default_loop_struct.ev = ev_default_loop(EVFLAG_AUTO);
 #endif
     ev_set_userdata(default_loop_struct.ev, default_loop_ptr);
+    eio_channel_init(&default_loop_struct.uv_eio_channel, default_loop_ptr);
   }
   assert(default_loop_ptr->ev == EV_DEFAULT_UC);
   return default_loop_ptr;
@@ -670,10 +672,9 @@ int uv_getaddrinfo(uv_loop_t* loop,
   uv_ref(loop);
 
   req = eio_custom(getaddrinfo_thread_proc, EIO_PRI_DEFAULT,
-      uv_getaddrinfo_done, handle);
+      uv_getaddrinfo_done, handle, loop);
   assert(req);
   assert(req->data == handle);
-  req->poll_data = loop;
 
   return 0;
 }
