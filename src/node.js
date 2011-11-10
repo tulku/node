@@ -277,13 +277,13 @@
 
     process.__defineGetter__('stdout', function() {
       if (stdout) return stdout;
-      stdout = createWritableStdioStream(1);
+      stdout = createWritableStdioStream(process._stdio_fds[1]);
       return stdout;
     });
 
     process.__defineGetter__('stderr', function() {
       if (stderr) return stderr;
-      stderr = createWritableStdioStream(2);
+      stderr = createWritableStdioStream(process._stdio_fds[2]);
       return stderr;
     });
 
@@ -291,7 +291,7 @@
       if (stdin) return stdin;
 
       var tty_wrap = process.binding('tty_wrap');
-      var fd = 0;
+      var fd = process._stdio_fds[0];
 
       switch (tty_wrap.guessHandleType(fd)) {
         case 'TTY':

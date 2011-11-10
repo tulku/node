@@ -90,8 +90,8 @@
 #endif
 
 #ifdef NODE_LIBRARY
-# define EXIT(X) node::Isolate *i = node::Isolate::GetCurrent(); if(!i->exit_code) i->exit_code = (X)
-# define RETURN_ON_EXIT(X) if(exit_code) return X
+# define EXIT(X) node::Isolate *i = node::Isolate::GetCurrent(); if(!i->exit_status) i->exit_status = (X)
+# define RETURN_ON_EXIT(X) if(exit_status) return X
 # define BREAK_AND_EXIT(X) ev_break(node::Isolate::GetCurrent()->Loop()->ev, EVBREAK_ALL); EXIT(X) //FIXME: implement generically for uv
 #else
 # define EXIT(X) exit((X))
@@ -125,6 +125,7 @@ public:
     static Isolate* GetDefault();
     static Isolate* GetCurrent();
     static uv_loop_t* GetCurrentLoop();
+    int Start(uv_thread_shared_t *options);
     int Start(int argc, char *argv[]);
     int Stop(int signum);
     static Isolate* New();
@@ -135,9 +136,11 @@ public:
         const char *path = NULL);
     void __FatalException(v8::TryCatch &try_catch);
     void __SetErrno(uv_err_t err);
+    v8::Persistent<v8::Object> local_env;
     uv_loop_t *Loop();
     ext_statics statics_;
-    int exit_code;
+    int exit_status;
+    int term_signal;
 
     Isolate();
     ~Isolate();
@@ -180,6 +183,7 @@ private:
 
     int Init(int argc, char *argv[]);
     v8::Handle<v8::Object> SetupProcessObject(int argc, char *argv[]);
+    void SetupLocalEnv(char *env[]);
     void Load(v8::Handle<v8::Object> process);
     void EmitExit(v8::Handle<v8::Object> process);
 
@@ -210,6 +214,8 @@ private:
 
     bool use_npn;
     bool use_sni;
+  
+    int stdin_fd, stdout_fd, stderr_fd;
     
     // Buffer for getpwnam_r(), getgrpam_r() and other misc callers; keep this
     // scoped at file-level rather than method-level to avoid excess stack usage.

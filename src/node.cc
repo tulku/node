@@ -1541,7 +1541,7 @@ void Isolate::__FatalException(TryCatch &try_catch) {
 
   // Immediately exit if the exception is a termination exception
   if (!try_catch.CanContinue()) {
-    BREAK_AND_EXIT(1);
+    BREAK_AND_EXIT(0);
     return;
   }
     
@@ -1695,20 +1695,30 @@ static void ProcessTitleSetter(Local<String> property,
 
 static Handle<Value> EnvGetter(Local<String> property,
                                const AccessorInfo& info) {
-  String::Utf8Value key(property);
-  const char* val = getenv(*key);
-  if (val) {
-    HandleScope scope;
-    return scope.Close(String::New(val));
+  HandleScope scope;
+  Local<Value> result = node::Isolate::GetCurrent()->local_env->Get(property);
+  if(result->IsUndefined()) {
+    String::Utf8Value key(property);
+    const char* val = getenv(*key);
+    if (val) {
+      result = String::New(val);
+    }
   }
-  return Undefined();
+  return scope.Close(result);
 }
 
 
 static Handle<Value> EnvSetter(Local<String> property,
                                Local<Value> value,
                                const AccessorInfo& info) {
+  /* FIXME: decide whether or not this is the desired behaviour */
   HandleScope scope;
+  Handle<Object> local_env = node::Isolate::GetCurrent()->local_env;
+  if(!local_env->Get(property)->IsUndefined()) {
+    local_env->Set(property, value);
+    return value;
+  }
+  
   String::Utf8Value key(property);
   String::Utf8Value val(value);
 
@@ -1731,9 +1741,13 @@ static Handle<Value> EnvSetter(Local<String> property,
 
 static Handle<Integer> EnvQuery(Local<String> property,
                                 const AccessorInfo& info) {
+  HandleScope scope;
+  Handle<Object> local_env = node::Isolate::GetCurrent()->local_env;
+  if(!local_env->Get(property)->IsUndefined()) {
+    return scope.Close(Integer::New(None));
+  }
   String::Utf8Value key(property);
   if (getenv(*key)) {
-    HandleScope scope;
     return scope.Close(Integer::New(None));
   }
   return Handle<Integer>();
@@ -1743,6 +1757,11 @@ static Handle<Integer> EnvQuery(Local<String> property,
 static Handle<Boolean> EnvDeleter(Local<String> property,
                                   const AccessorInfo& info) {
   HandleScope scope;
+  Handle<Object> local_env = node::Isolate::GetCurrent()->local_env;
+  if(!local_env->Get(property)->IsUndefined()) {
+    local_env->Delete(property);
+    return True();
+  }
 
   String::Utf8Value key(property);
 
@@ -1768,17 +1787,23 @@ static Handle<Boolean> EnvDeleter(Local<String> property,
 
 static Handle<Array> EnvEnumerator(const AccessorInfo& info) {
   HandleScope scope;
+  Handle<Object> local_env = node::Isolate::GetCurrent()->local_env;
+  Local<Array> local_properties = local_env->GetOwnPropertyNames();
+  int local_count = local_properties->Length();
 
   int size = 0;
-  while (environ[size]) size++;
+  while (environ[size + local_count]) size++;
 
   Local<Array> env = Array::New(size);
 
+  for(int i = 0; i < local_count; i++) {
+    env->Set(i, local_properties->Get(i));
+  }
   for (int i = 0; i < size; ++i) {
     const char* var = environ[i];
     const char* s = strchr(var, '=');
     const int length = s ? s - var : strlen(var);
-    env->Set(i, String::New(var, length));
+    env->Set(i + local_count, String::New(var, length));
   }
 
   return scope.Close(env);
@@ -1809,6 +1834,21 @@ Handle<Object> Isolate::GetFeatures() {
 
 
 static Handle<Value> DebugProcess(const Arguments& args);
+
+void Isolate::SetupLocalEnv(char *env[]) {
+    HandleScope scope;
+    
+  local_env = Persistent<Object>::New(Object::New());
+  if(env) {
+    for(int i = 0; env[i]; i++) {
+      char *entry = env[i];
+      const char* s = strchr(entry, '=');
+      if(!s) continue;
+      const int key_length = s++ - entry;
+      local_env->Set(String::New(entry, key_length), String::New(s));
+    }
+  }
+}
 
 Handle<Object> Isolate::SetupProcessObject(int argc, char *argv[]) {
   HandleScope scope;
@@ -1908,7 +1948,13 @@ Handle<Object> Isolate::SetupProcessObject(int argc, char *argv[]) {
     process->Set(String::NewSymbol("execPath"), String::New(execPath, size));
   }
   delete [] execPath;
-
+  
+  //stdio_fds
+  Local<Array> fds = Array::New(3);
+  fds->Set(Integer::New(0), Integer::New(stdin_fd));
+  fds->Set(Integer::New(1), Integer::New(stdout_fd));
+  fds->Set(Integer::New(2), Integer::New(stderr_fd));
+  process->Set(String::NewSymbol("_stdio_fds"), fds);
 
   // define various internal methods
   NODE_SET_METHOD(process, "_needTickCallback", NeedTickCallback);
@@ -1940,7 +1986,6 @@ Handle<Object> Isolate::SetupProcessObject(int argc, char *argv[]) {
 
   return process;
 }
-
 
 static void AtExit() {
   uv_tty_reset_mode();
@@ -2430,6 +2475,20 @@ void Isolate::EmitExit(v8::Handle<v8::Object> process) {
 
 
 int Isolate::Start(int argc, char *argv[]) {
+  uv_thread_shared_t hnd;
+  memset(&hnd, 0, sizeof(uv_thread_shared_t));
+  hnd.args = argv;
+  hnd.stdin_fd = hnd.stdout_fd = hnd.stderr_fd = -1;
+  return Start(&hnd);
+}
+
+int Isolate::Start(uv_thread_shared_t *hnd) {
+  int argc = 0;
+  while(hnd->args[argc]) argc++;
+  if(hnd->stdin_fd >= 0) stdin_fd = hnd->stdin_fd;
+  if(hnd->stdout_fd >= 0) stdout_fd = hnd->stdout_fd;
+  if(hnd->stderr_fd >= 0) stderr_fd = hnd->stderr_fd;
+
   // Get and enter v8::Isolate
   isolate = v8::Isolate::GetCurrent();
   if(!isolate) isolate = v8::Isolate::New();
@@ -2438,8 +2497,8 @@ int Isolate::Start(int argc, char *argv[]) {
   v8::Isolate::Scope isolate_scope(isolate);
   
   // Process arguments and other Isolate-wide init
-  Init(argc, argv);
-  RETURN_ON_EXIT(exit_code);
+  Init(argc, hnd->args);
+  RETURN_ON_EXIT(exit_status);
 
   // Create the one and only Context for this isolate.
   v8::HandleScope handle_scope;
@@ -2447,14 +2506,15 @@ int Isolate::Start(int argc, char *argv[]) {
   v8::Context::Scope context_scope(context);
 
   // set up JS-side prerequisites
-  Handle<Object> process = SetupProcessObject(argc, argv);
+  SetupLocalEnv(hnd->env);
+  Handle<Object> process = SetupProcessObject(argc, hnd->args);
   v8_typed_array::AttachBindings(context->Global());
-  RETURN_ON_EXIT(exit_code);
+  RETURN_ON_EXIT(exit_status);
 
   // Create all the objects, load modules, do everything.
   // so your next reading stop should be node::Load()!
   Load(process);
-  RETURN_ON_EXIT(exit_code);
+  RETURN_ON_EXIT(exit_status);
 
   // All our arguments are loaded. We've evaluated all of the scripts. We
   // might even have created TCP servers. Now we enter the main eventloop. If
@@ -2462,7 +2522,7 @@ int Isolate::Start(int argc, char *argv[]) {
   // uv_unref'd) then this function exits. As long as there are active
   // watchers, it blocks.
   uv_run(Loop());
-  RETURN_ON_EXIT(exit_code);
+  RETURN_ON_EXIT(exit_status);
 
   EmitExit(process);
 
@@ -2471,7 +2531,7 @@ int Isolate::Start(int argc, char *argv[]) {
   context.Dispose();
 #endif  // NDEBUG
 
-  return exit_code;
+  return exit_status;
 }
     
 uv_loop_t *Isolate::Loop() {
@@ -2491,7 +2551,9 @@ Isolate::Isolate() {
 #else
   use_npn = false;
 #endif
-    
+
+  stdin_fd = 0; stdout_fd = 1; stderr_fd = 2;
+  
 #ifdef SSL_CTRL_SET_TLSEXT_SERVERNAME_CB
   use_sni = true;
 #else
@@ -2499,7 +2561,8 @@ Isolate::Isolate() {
 #endif
   tick_time_head = 0;
   uncaught_exception_counter = 0;
-  exit_code = 0;
+  exit_status = 0;
+  term_signal = 0;
   loop_ = (this == &defaultIsolate) ? uv_default_loop(): uv_loop_new();
 }
 
@@ -2516,9 +2579,14 @@ void Isolate::Dispose() {
 }
   
 int Isolate::Stop(int signum) {
-  ev_feed_signal(/*Loop()->ev,*/ signum);  //FIXME: implement generically for non-default loops
+  if(signum == SIGKILL || signum == SIGABRT) {
+    term_signal = signum;
+    V8::TerminateExecution(isolate);
+  } else {
+    ev_feed_signal(/*Loop()->ev,*/ signum);  //FIXME: implement generically for non-default loops
+  }
   ev_break(Loop()->ev, EVBREAK_ALL);  //FIXME: implement generically for uv
-  return exit_code;
+  return exit_status;
 }
 
 // one-time initialisation

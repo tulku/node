@@ -88,8 +88,27 @@ class ProcessWrap : public HandleWrap {
     return scope.Close(args.This());
   }
 
-  ProcessWrap(Handle<Object> object) : HandleWrap(object, NULL) { }
+  ProcessWrap(Handle<Object> object) : HandleWrap(object, NULL),
+      is_exited_(false),
+      is_isolate_(false) { }
   ~ProcessWrap() { }
+  
+#if defined(NODE_FORK_ISOLATE)
+  static void *IsolateMain(uv_thread_shared_t *hnd, void *thread_arg) {
+    node::Isolate *isolate = static_cast<node::Isolate *>(thread_arg);
+    isolate->Start(hnd);
+    hnd->exit_status = isolate->exit_status;
+    hnd->term_signal = isolate->term_signal;
+    isolate->Dispose();
+    delete isolate;
+    return NULL;
+  }
+  
+  static int IsolateStop(uv_thread_shared_t *hnd, void *data) {
+    node::Isolate *isolate = static_cast<node::Isolate *>(hnd->thread_arg);
+    return isolate ? isolate->Stop(*((int *)data)) : 0;
+  }
+#endif
 
   static Handle<Value> Spawn(const Arguments& args) {
     HandleScope scope;
@@ -175,25 +194,45 @@ class ProcessWrap : public HandleWrap {
         Get(String::NewSymbol("windowsVerbatimArguments"))->IsTrue();
 #endif
 
-    int r = uv_spawn(Isolate::GetCurrentLoop(), &wrap->process_, options);
+#if defined(NODE_FORK_ISOLATE)
+    // options.fork
+    int r;
+    Local<Value> fork_v = js_options->Get(String::New("fork"));    
+    if (fork_v->IsBoolean() && fork_v->BooleanValue()) {
+      Isolate *isolate = node::Isolate::New();
+      if(!isolate) {
+        r = UV_ENOMEM;
+      } else {
+        options.thread_arg = isolate;
+        options.thread_run = IsolateMain;
+        r = uv_thread_create(Isolate::GetCurrentLoop(), &wrap->thread_, options);
+        wrap->SetHandle((uv_handle_t*)&wrap->thread_);
+        assert(wrap->thread_.data == wrap);
+        wrap->is_isolate_ = true;
+      }
+    } else
+#endif
+    {
+      r = uv_spawn(Isolate::GetCurrentLoop(), &wrap->process_, options);
 
-    wrap->SetHandle((uv_handle_t*)&wrap->process_);
-    assert(wrap->process_.data == wrap);
+      wrap->SetHandle((uv_handle_t*)&wrap->process_);
+      assert(wrap->process_.data == wrap);
 
-    wrap->object_->Set(String::New("pid"), Integer::New(wrap->process_.pid));
+      wrap->object_->Set(String::New("pid"), Integer::New(wrap->process_.pid));
 
-    if (options.args) {
-      for (int i = 0; options.args[i]; i++) free(options.args[i]);
-      delete [] options.args;
+      /* FIXME: only free the args/env in the process case */
+      if (options.args) {
+        for (int i = 0; options.args[i]; i++) free(options.args[i]);
+        delete [] options.args;
+      }
+      if (options.env) {
+        for (int i = 0; options.env[i]; i++) free(options.env[i]);
+        delete [] options.env;
+      }      
     }
 
     free(options.cwd);
     free((void*)options.file);
-
-    if (options.env) {
-      for (int i = 0; options.env[i]; i++) free(options.env[i]);
-      delete [] options.env;
-    }
 
     if (r) SetLastErrno();
 
@@ -207,29 +246,40 @@ class ProcessWrap : public HandleWrap {
 
     int signal = args[0]->Int32Value();
 
-    int r = uv_process_kill(&wrap->process_, signal);
+    int r = 0;
+    if(!wrap->is_exited_) {
+      if(wrap->is_isolate_) {
+        r = uv_thread_get_shared(&wrap->thread_, IsolateStop, &signal);
+      } else {
+        r = uv_process_kill(&wrap->process_, signal);
+      }
+    }
 
     if (r) SetLastErrno();
 
     return scope.Close(Integer::New(r));
   }
 
-  static void OnExit(uv_process_t* handle, int exit_status, int term_signal) {
+  static void OnExit(uv_handle_t* handle, int exit_status, int term_signal) {
     HandleScope scope;
-
+    
     ProcessWrap* wrap = static_cast<ProcessWrap*>(handle->data);
     assert(wrap);
-    assert(&wrap->process_ == handle);
-
+    assert((wrap->is_isolate_ ? (uv_handle_t *)&wrap->thread_ : (uv_handle_t *)&wrap->process_) == handle);
+    
     Local<Value> argv[2] = {
       Integer::New(exit_status),
       String::New(signo_string(term_signal))
     };
-
+    
+    wrap->is_exited_ = true;
     MakeCallback(wrap->object_, "onexit", 2, argv);
   }
-
+  
+  bool is_exited_;
+  bool is_isolate_;
   uv_process_t process_;
+  uv_thread_t thread_;
 };
 
 
