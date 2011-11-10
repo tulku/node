@@ -278,12 +278,14 @@
     process.__defineGetter__('stdout', function() {
       if (stdout) return stdout;
       stdout = createWritableStdioStream(process._stdio_fds[1]);
+      stdout.end = stdout.destroy = stdout.destroySoon = function() { };
       return stdout;
     });
 
     process.__defineGetter__('stderr', function() {
       if (stderr) return stderr;
       stderr = createWritableStdioStream(process._stdio_fds[2]);
+      stderr.end = stderr.destroy = stderr.destroySoon = function() { };
       return stderr;
     });
 
@@ -349,7 +351,7 @@
       }
 
       if (r) {
-        throw errnoException('kill', errno);
+        throw errnoException(errno, 'kill');
       }
     };
   };

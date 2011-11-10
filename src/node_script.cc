@@ -453,5 +453,5 @@ void InitEvals(Handle<Object> target) {
 }  // namespace node
 
 
-NODE_MODULE(node_evals, node::InitEvals);
+NODE_MODULE(node_evals, node::InitEvals)
 
