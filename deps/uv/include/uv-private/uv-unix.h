@@ -171,6 +171,13 @@ typedef void* uv_lib_t;
 #define UV_PROCESS_PRIVATE_FIELDS \
   ev_child child_watcher;
 
+#define UV_THREAD_PRIVATE_FIELDS   \
+  ev_async thread_watcher;         \
+  uv_thread_shared_t *thread_shared;  \
+  int exit_status;                 \
+  int term_signal;
+
+
 #define UV_FS_PRIVATE_FIELDS \
   struct stat statbuf; \
   eio_req* eio;

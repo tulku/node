@@ -170,7 +170,6 @@ select_poll (EV_P_ ev_tstamp timeout)
   res = select (vec_max * NFDBITS, (fd_set *)vec_ro, (fd_set *)vec_wo, 0, &tv);
 #endif
   EV_ACQUIRE_CB;
-
   if (expect_false (res < 0))
     {
       #if EV_SELECT_IS_WINSOCKET

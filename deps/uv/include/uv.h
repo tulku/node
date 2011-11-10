@@ -133,7 +133,8 @@ typedef enum {
   UV_ARES_TASK,
   UV_ARES_EVENT,
   UV_PROCESS,
-  UV_FS_EVENT
+  UV_FS_EVENT,
+  UV_THREAD
 } uv_handle_type;
 
 typedef enum {
@@ -169,6 +170,9 @@ typedef struct uv_idle_s uv_idle_t;
 typedef struct uv_async_s uv_async_t;
 typedef struct uv_getaddrinfo_s uv_getaddrinfo_t;
 typedef struct uv_process_s uv_process_t;
+typedef struct uv_process_options_s uv_process_options_t;
+typedef struct uv_thread_s uv_thread_t;
+typedef struct uv_thread_shared_s uv_thread_shared_t;
 typedef struct uv_counters_s uv_counters_t;
 /* Request types */
 typedef struct uv_req_s uv_req_t;
@@ -247,7 +251,7 @@ typedef void (*uv_check_cb)(uv_check_t* handle, int status);
 typedef void (*uv_idle_cb)(uv_idle_t* handle, int status);
 typedef void (*uv_getaddrinfo_cb)(uv_getaddrinfo_t* handle, int status,
     struct addrinfo* res);
-typedef void (*uv_exit_cb)(uv_process_t*, int exit_status, int term_signal);
+typedef void (*uv_exit_cb)(uv_handle_t*, int exit_status, int term_signal);
 typedef void (*uv_fs_cb)(uv_fs_t* req);
 typedef void (*uv_work_cb)(uv_work_t* req);
 typedef void (*uv_after_work_cb)(uv_work_t* req);
@@ -766,7 +770,6 @@ UV_EXTERN int uv_pipe_bind(uv_pipe_t* handle, const char* name);
 UV_EXTERN void uv_pipe_connect(uv_connect_t* req, uv_pipe_t* handle,
     const char* name, uv_connect_cb cb);
 
-
 /*
  * uv_prepare_t is a subclass of uv_handle_t.
  *
@@ -925,8 +928,11 @@ UV_EXTERN int uv_getaddrinfo(uv_loop_t*, uv_getaddrinfo_t* handle,
 
 UV_EXTERN void uv_freeaddrinfo(struct addrinfo* ai);
 
+/* thread runnable */
+typedef void *(*uv_thread_run)(uv_thread_shared_t *hnd, void *thread_arg);
+
 /* uv_spawn() options */
-typedef struct uv_process_options_s {
+struct uv_process_options_s {
   uv_exit_cb exit_cb; /* Called after the process exits. */
   const char* file; /* Path to program to execute. */
   /*
@@ -951,6 +957,16 @@ typedef struct uv_process_options_s {
    * TODO describe how this works.
    */
   int windows_verbatim_arguments;
+  
+  /*
+   * thread arg, to avoid requiring a separate struct for thread creation options
+   */
+  void *thread_arg;
+  
+  /*
+   * thread_run, the entrypoint for thread execution
+   */
+  uv_thread_run thread_run;
 
   /*
    * The user should supply pointers to initialized uv_pipe_t structs for
@@ -960,7 +976,7 @@ typedef struct uv_process_options_s {
   uv_pipe_t* stdin_stream;
   uv_pipe_t* stdout_stream;
   uv_pipe_t* stderr_stream;
-} uv_process_options_t;
+};
 
 /*
  * uv_process_t is a subclass of uv_handle_t
@@ -986,6 +1002,45 @@ UV_EXTERN int uv_process_kill(uv_process_t*, int signum);
 /* Kills the process with the specified signal. */
 UV_EXTERN uv_err_t uv_kill(int pid, int signum);
 
+/*
+ * uv-related thread functions
+ */
+  
+/* a shared structure whose lifetime covers that of both the client and
+ * a created thread */
+struct uv_thread_shared_s {
+  uv_thread_t *thread_handle; /* exists only for the lifetime of the client, zero afterwards */
+  pthread_t thread_id;        /* exists only for the lifetime of the thread, zero afterwards */
+  void *thread_arg;           /* as originally passed in options */
+  char **args;                /* the responsibility of the thread to delete when no longer needed */
+  char **env;                 /* the responsibility of the thread to delete when no longer needed */
+  int exit_status;            /* set by the thread on exit before notifying any watcher */
+  int term_signal;            /* set by the thread on exit before notifying any watcher */
+  /* private after this point */
+  pthread_mutex_t mtx;
+  pthread_cond_t cond;
+  int stdin_fd, stdout_fd, stderr_fd; /* fds to be used by the thread */
+  uv_process_options_t *options;
+};
+  
+/*
+ * uv_thread_t is a subclass of uv_handle_t
+ */
+struct uv_thread_s {
+  UV_HANDLE_FIELDS
+  uv_exit_cb exit_cb;
+  UV_THREAD_PRIVATE_FIELDS
+};
+  
+/* create and start a thread */
+UV_EXTERN int uv_thread_create(uv_loop_t *loop, uv_thread_t *thread, uv_process_options_t options);
+  
+/* close a thread handle */
+void uv_thread_close(uv_thread_t *thread);
+  
+/* retrieves the shared handle, synchronously calling a user callback 
+ * callback contains shared handle pointer, or NULL if thread has exited */
+int uv_thread_get_shared(uv_thread_t *thread, int (*cb)(uv_thread_shared_t *, void *), void *data);
 
 /*
  * uv_work_t is a subclass of uv_req_t
@@ -1158,7 +1213,6 @@ struct uv_fs_event_s {
   UV_FS_EVENT_PRIVATE_FIELDS
 };
 
-
 /*
  * Gets load avg
  * See: http://en.wikipedia.org/wiki/Load_(computing)
@@ -1274,6 +1328,7 @@ struct uv_counters_s {
   uint64_t async_init;
   uint64_t timer_init;
   uint64_t process_init;
+  uint64_t thread_init;
   uint64_t fs_event_init;
 };
 

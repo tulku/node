@@ -29,6 +29,8 @@
 #include <poll.h>
 #include <unistd.h>
 #include <stdio.h>
+#include <stdlib.h>
+#include <pthread.h>
 
 #ifdef __APPLE__
 # include <crt_externs.h>
@@ -58,7 +60,7 @@ static void uv__chld(EV_P_ ev_child* watcher, int revents) {
   }
 
   if (process->exit_cb) {
-    process->exit_cb(process, exit_status, term_signal);
+    process->exit_cb((uv_handle_t *)process, exit_status, term_signal);
   }
 }
 
@@ -67,7 +69,7 @@ static void uv__chld(EV_P_ ev_child* watcher, int revents) {
  * Used for initializing stdio streams like options.stdin_stream. Returns
  * zero on success.
  */
-static int uv__process_init_pipe(uv_pipe_t* handle, int fds[2]) {
+int uv__process_init_pipe(uv_pipe_t* handle, int fds[2]) {
   if (handle->type != UV_NAMED_PIPE) {
     errno = EINVAL;
     return -1;
@@ -289,6 +291,196 @@ error:
   return -1;
 }
 
+/* retrieves the shared handle, synchronously calling a user callback 
+ * callback contains shared handle pointer, or NULL if thread has exited */
+int uv_thread_get_shared(uv_thread_t *thread, int (*cb)(uv_thread_shared_t *, void *), void *data) {
+  uv_thread_shared_t *hnd = thread->thread_shared;
+  pthread_mutex_lock(&hnd->mtx);
+  int r = cb(hnd->thread_id ? hnd : 0, data); 
+  pthread_mutex_unlock(&hnd->mtx);
+  return r;
+}
+
+/* deletes the shared handle */
+void uv__thread_shared_delete(uv_thread_shared_t *hnd) {
+  int i;
+  if (hnd->args) {
+    for (i = 0; hnd->args[i]; i++) free(hnd->args[i]);
+    free(hnd->args);
+  }
+  if (hnd->env) {
+    for (i = 0; hnd->env[i]; i++) free(hnd->env[i]);
+    free(hnd->env);
+  }
+  free(hnd);
+}
+
+/* called by the client when the corresponding uv_thread_t handle
+ * is closed */
+void uv_thread_close(uv_thread_t *thread) {
+  /* close the watcher */
+  ev_async_stop(thread->loop->ev, (ev_async *)&thread->thread_watcher);
+
+  /* synchronously clear the reference to this from the shared handle */
+  uv_thread_shared_t *hnd = thread->thread_shared;
+  pthread_mutex_lock(&hnd->mtx);
+  hnd->thread_handle = 0;
+  pthread_t thread_still_exists = hnd->thread_id;
+  pthread_mutex_unlock(&hnd->mtx);
+
+  /* if the thread has exited already, delete shared handle */
+ if(!thread_still_exists)
+   uv__thread_shared_delete(hnd);
+}
+
+/* the actual thread entrypoint passed to pthread_create() */
+static void *uv__thread_run(void *arg) {
+  /* synchronously get the entrypoint and call it */
+  uv_thread_shared_t *hnd = (uv_thread_shared_t *)arg;
+  pthread_mutex_lock(&hnd->mtx);
+  uv_thread_run thread_run = hnd->options->thread_run;
+  void *thread_arg = hnd->options->thread_arg;
+  /* ... any other processing depending on thread or options here ... */
+  pthread_cond_signal(&hnd->cond);
+  pthread_mutex_unlock(&hnd->mtx);  
+  void *result = (*thread_run)(hnd, thread_arg);
+  
+  /* close any pipes created */
+  if(hnd->stdin_fd != -1) uv__close(hnd->stdin_fd);
+  if(hnd->stdout_fd != -1) uv__close(hnd->stdout_fd);
+  if(hnd->stderr_fd != -1) uv__close(hnd->stderr_fd);
+
+  /* synchronously notify exit to the client event loop */
+  pthread_mutex_lock(&hnd->mtx);
+  uv_thread_t *thread = hnd->thread_handle;
+  if(thread) {
+    /* copy these before they disappear ... */
+    thread->exit_status = hnd->exit_status;
+    thread->term_signal = hnd->term_signal;
+    ev_async_send(thread->loop->ev, &thread->thread_watcher);
+  }
+  hnd->thread_id = 0;
+  pthread_mutex_unlock(&hnd->mtx);
+
+  /* if the handle had gone already, delete shared handle */
+  if(!thread)
+    uv__thread_shared_delete(hnd);
+  
+  return result;
+}
+
+/* the watcher callback signifying thread exit. Called in the context
+ * of the event loop that created the thread */
+static void uv__thread_exit(EV_P_ ev_async* watcher, int revents) {  
+  uv_thread_t *thread = watcher->data;
+  
+  assert(&thread->thread_watcher == watcher);
+  assert(revents & EV_ASYNC);
+  
+  ev_async_stop(EV_A_ &thread->thread_watcher);
+  
+  if (thread->exit_cb) {
+    thread->exit_cb((uv_handle_t *)thread, thread->exit_status, thread->term_signal);
+  }
+}
+
+/* creates and starts a thread and associated watcher */
+int uv_thread_create(uv_loop_t *loop, uv_thread_t *thread, uv_process_options_t options) {
+
+  /* initialise the thread handle */
+  uv__handle_init(loop, (uv_handle_t*)thread, UV_THREAD);
+  loop->counters.thread_init++;
+  thread->exit_cb = options.exit_cb;
+  
+  /* initialise a watcher for this thread */
+  ev_async_init((ev_async *)&thread->thread_watcher, uv__thread_exit);
+  ev_async_start(loop->ev, (ev_async *)&thread->thread_watcher);
+  thread->thread_watcher.data = thread;
+  
+  /* initialise the shared handle */
+  uv_thread_shared_t *hnd = (uv_thread_shared_t *)calloc(sizeof(uv_thread_shared_t), 1);
+  if(!hnd)
+    goto error;
+  
+  thread->thread_shared = hnd;
+  pthread_mutex_init(&hnd->mtx, NULL);
+  pthread_cond_init(&hnd->cond, NULL);
+  hnd->thread_handle = thread;
+  hnd->options = &options;
+  hnd->thread_arg = options.thread_arg;
+  hnd->stdin_fd = hnd->stdout_fd = hnd->stderr_fd = -1;
+  /* FIXME: take ownership of args, but better way sought */
+  hnd->args = options.args;
+  hnd->env = options.env;
+  options.args = 0;
+  options.env = 0;
+
+  /* set up pipes to caller where requested */
+  int r = 0, flags;
+  int stdin_pipe[2] = { -1, -1 };
+  int stdout_pipe[2] = { -1, -1 };
+  int stderr_pipe[2] = { -1, -1 };
+  if(options.stdin_stream) {
+    r = uv__process_init_pipe(options.stdin_stream, stdin_pipe);
+    if(r)
+      goto error;
+    if(stdin_pipe[0] >= 0) {
+      hnd->stdin_fd = stdin_pipe[0];
+      uv__nonblock(stdin_pipe[1], 1);
+      flags = UV_WRITABLE | (options.stdin_stream->ipc ? UV_READABLE : 0);
+      uv__stream_open((uv_stream_t*)options.stdin_stream, stdin_pipe[1],
+                      flags);
+    }
+  }
+  if(options.stdout_stream) {
+    r = uv__process_init_pipe(options.stdout_stream, stdout_pipe);
+    if(r)
+      goto error;
+    if(stdout_pipe[1] >= 0) {
+      hnd->stdout_fd = stdout_pipe[1];
+      uv__nonblock(stdout_pipe[0], 1);
+      flags = UV_READABLE | (options.stdout_stream->ipc ? UV_WRITABLE : 0);
+      uv__stream_open((uv_stream_t*)options.stdout_stream, stdout_pipe[0],
+                      flags);
+    }
+  }
+  if(options.stderr_stream) {
+    r = uv__process_init_pipe(options.stderr_stream, stderr_pipe);
+    if(r)
+      goto error;
+    if(stderr_pipe[1] >= 0) {
+      hnd->stderr_fd = stderr_pipe[1];
+      uv__nonblock(stderr_pipe[0], 1);
+      flags = UV_READABLE | (options.stderr_stream->ipc ? UV_WRITABLE : 0);
+      uv__stream_open((uv_stream_t*)options.stderr_stream, stderr_pipe[0],
+                      flags);
+    }
+  }
+  
+  /* synchronously create the thread */
+  pthread_mutex_lock(&hnd->mtx);
+  pthread_create(&hnd->thread_id, 0, uv__thread_run, hnd);
+  pthread_cond_wait(&hnd->cond, &hnd->mtx);
+  pthread_mutex_unlock(&hnd->mtx);
+
+  return 0;
+
+error:
+  uv__set_sys_error(loop, errno);
+  uv__close(stdin_pipe[0]);
+  uv__close(stdin_pipe[1]);
+  uv__close(stdout_pipe[0]);
+  uv__close(stdout_pipe[1]);
+  uv__close(stderr_pipe[0]);
+  uv__close(stderr_pipe[1]);
+  return -1;
+}
+
+void uv_thread_exit(uv_loop_t *loop, uv_thread_t *thread, int exit_status, int term_signal) {
+  thread->exit_status = exit_status;
+  thread->term_signal = term_signal;
+  ev_async_send(loop->ev, &thread->thread_watcher);
+}
 
 int uv_process_kill(uv_process_t* process, int signum) {
   int r = kill(process->pid, signum);

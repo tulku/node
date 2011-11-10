@@ -75,6 +75,7 @@ void uv_close(uv_handle_t* handle, uv_close_cb close_cb) {
   uv_timer_t* timer;
   uv_stream_t* stream;
   uv_process_t* process;
+  uv_thread_t* thread;
 
   handle->close_cb = close_cb;
 
@@ -139,6 +140,11 @@ void uv_close(uv_handle_t* handle, uv_close_cb close_cb) {
     case UV_PROCESS:
       process = (uv_process_t*)handle;
       ev_child_stop(process->loop->ev, &process->child_watcher);
+      break;
+
+    case UV_THREAD:
+      thread = (uv_thread_t*)handle;
+      uv_thread_close(thread);
       break;
 
     case UV_FS_EVENT:
@@ -259,7 +265,11 @@ void uv__finish_close(uv_handle_t* handle) {
     case UV_PROCESS:
       assert(!ev_is_active(&((uv_process_t*)handle)->child_watcher));
       break;
-
+      
+    case UV_THREAD:
+      assert(!ev_is_active(&((uv_thread_t*)handle)->thread_watcher));
+      break;
+      
     case UV_FS_EVENT:
       break;
 
