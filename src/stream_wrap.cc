@@ -73,7 +73,7 @@ class StreamStatics : public ModuleStatics {
     Persistent<String> write_queue_size_sym;
     bool initialized;
     friend class StreamWrap;
-    StreamStatics() {initialized = false;}
+    StreamStatics() {slab_used = 0; initialized = false;}
 };
 
 void StreamWrap::Initialize(Handle<Object> target) {
