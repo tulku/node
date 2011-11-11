@@ -209,6 +209,8 @@ private:
     uv_check_t check_tick_watcher;
     uv_prepare_t prepare_tick_watcher;
     uv_idle_t tick_spinner;
+    uv_async_t stop_watcher;
+    
     bool need_tick_cb;
     v8::Persistent<v8::String> tick_callback_sym;
 
