@@ -1,5 +1,4 @@
 #include <node.h>
-#include <pthread.h>
 
 void *run(void *arg);
 
