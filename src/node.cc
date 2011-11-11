@@ -2005,6 +2005,9 @@ static void SignalExit(int signal) {
   _exit(1);
 }
 
+static void Break(uv_async_t* handle, int status) {
+  ev_break(handle->loop->ev, EVBREAK_ALL);  //FIXME: implement generically for uv
+}
 
 void Isolate::Load(Handle<Object> process) {
   // Compile, execute the src/node.js file. (Which was included as static C
@@ -2434,6 +2437,9 @@ int Isolate::Init(int argc, char *argv[]) {
   uv_timer_init(Loop(), &gc_timer);
   uv_unref(Loop());
 
+  uv_async_init(Loop(), &stop_watcher, Break);
+  uv_unref(Loop());
+
   V8::SetFatalErrorHandler(node::OnFatalError);
 
   // Set the callback DebugMessageDispatch which is called from the debug
@@ -2587,13 +2593,15 @@ void Isolate::Dispose() {
 }
   
 int Isolate::Stop(int signum) {
+  /* trigger the event loop to wake up, and (in the callback)
+   * break out of the loop */
+  uv_async_send(&stop_watcher);
+  /* forcibly terminate any ongoing javascript execution, forcing
+   * execution to return back to the event loop */
   if(signum == SIGKILL || signum == SIGABRT) {
     term_signal = signum;
     V8::TerminateExecution(isolate);
-  } else {
-    ev_feed_signal(/*Loop()->ev,*/ signum);  //FIXME: implement generically for non-default loops
   }
-  ev_break(Loop()->ev, EVBREAK_ALL);  //FIXME: implement generically for uv
   return exit_status;
 }
 
