@@ -33,6 +33,7 @@
 #include <netinet/tcp.h>
 #include <arpa/inet.h>
 #include <netdb.h>
+#include <pthread.h>
 #include <termios.h>
 
 /* Note: May be cast to struct iovec. See writev(2). */

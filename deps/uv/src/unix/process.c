@@ -30,7 +30,6 @@
 #include <unistd.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <pthread.h>
 
 #ifdef __APPLE__
 # include <crt_externs.h>
