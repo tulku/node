@@ -1094,12 +1094,20 @@ static void ReportException(TryCatch &try_catch, bool show_line) {
   fflush(stderr);
 }
 
+static bool precompiled = false;
+static ScriptData *script_data;
+
 // Executes a str within the current v8 context.
 Local<Value> ExecuteString(Handle<String> source, Handle<Value> filename) {
   HandleScope scope;
   TryCatch try_catch;
+  
+  if(!precompiled) {
+    script_data = ScriptData::PreCompile(source);
+    precompiled = true;
+  }
 
-  Local<v8::Script> script = v8::Script::Compile(source, filename);
+  Local<v8::Script> script = v8::Script::Compile(source, new ScriptOrigin(filename), script_data);
   if (script.IsEmpty()) {
     ReportException(try_catch, true);
     EXIT(1);
