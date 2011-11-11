@@ -323,7 +323,7 @@ bool IsInternal(struct ifaddrs* addr) {
 
 Handle<Value> Platform::GetInterfaceAddresses() {
   /* FIXME: implement this */
-  return ThrowException(ErrnoException(errno, "getifaddrs"));
+  return ThrowException(node::Isolate::GetCurrent()->ErrnoException(errno, "getifaddrs"));
 
 #if 0
   HandleScope scope;
