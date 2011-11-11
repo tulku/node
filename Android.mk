@@ -18,8 +18,6 @@
 LOCAL_PATH := $(call my-dir)
 include $(LOCAL_PATH)/Android.common.mk
 
-LOCAL_SRC_FILES += src/lib_wrapper.cc
-
 # to override exit handling in node.cc
 LOCAL_CFLAGS += -DNODE_LIBRARY
 
