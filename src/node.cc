@@ -1247,7 +1247,7 @@ Handle<Value> Isolate::SetGid(const Arguments& args) {
     struct group *grpp = NULL;
 
     if ((grpp = getgrnam(*grpnam)) == NULL) {
-      return ThrowException(ErrnoException(errno, "getgrnam_r"));
+      return ThrowException(isolate->ErrnoException(errno, "getgrnam_r"));
     }
 #endif //__REENTRANT_GRP__
 
@@ -1296,7 +1296,7 @@ Handle<Value> Isolate::SetUid(const Arguments& args) {
     struct passwd *pwdp = NULL;
 
     if ((pwdp = getpwnam(*pwnam)) == NULL) {
-      return ThrowException(ErrnoException(errno, "getpwnam"));
+      return ThrowException(isolate->ErrnoException(errno, "getpwnam"));
     }
 #endif //__REENTRANT_GRP__
 
