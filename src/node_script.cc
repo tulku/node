@@ -411,7 +411,13 @@ Handle<Value> WrappedScript::EvalMachine(const Arguments& args) {
         context->Exit();
         context.Dispose();
       }
-      return try_catch.ReThrow();
+      /* ReThrow doesn't re-throw TerminationExceptions; a null exception value
+       * is re-thrown instead (see Isolate::PropagatePendingExceptionToExternalTryCatch())
+       * so we re-propagate a TerminationException explicitly here if necesary. */
+      if(try_catch.CanContinue())
+        return try_catch.ReThrow();
+      v8::V8::TerminateExecution();
+      return v8::Undefined();
     }
   } else {
     WrappedScript *n_script = ObjectWrap::Unwrap<WrappedScript>(args.Holder());
