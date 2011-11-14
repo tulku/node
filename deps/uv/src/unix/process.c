@@ -102,8 +102,8 @@ static int uv__make_pipe(int fds[2], int flags) {
 #if HAVE_PIPE2
   int fl = 0;
 
-  if (!flags & UV__F_NOCLOEXEC)
-    fl = O_CLOEXEC;
+  if (!(flags & UV__F_NOCLOEXEC))
+    fl |= O_CLOEXEC;
 
   if (flags & UV__F_NONBLOCK)
     fl |= O_NONBLOCK;
@@ -124,7 +124,7 @@ static int uv__make_pipe(int fds[2], int flags) {
   if (pipe(fds))
     return -1;
 
-  if (!flags & UV__F_NOCLOEXEC) {
+  if (!(flags & UV__F_NOCLOEXEC)) {
     uv__cloexec(fds[0], 1);
     uv__cloexec(fds[1], 1);
   }
