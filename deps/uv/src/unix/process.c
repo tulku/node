@@ -39,24 +39,17 @@ extern char **environ;
 #endif
 
 
-static void uv__chld(EV_P_ ev_child* watcher, int revents) {
-  int status = watcher->rstatus;
+static void uv__io_chld(EV_P_ ev_io* watcher, int revents) {
   int exit_status = 0;
   int term_signal = 0;
   uv_process_t *process = watcher->data;
 
-  assert(&process->child_watcher == watcher);
-  assert(revents & EV_CHILD);
+  assert(&process->io_child_watcher == watcher);
+  assert(revents & EV_READ);
 
-  ev_child_stop(EV_A_ &process->child_watcher);
-
-  if (WIFEXITED(status)) {
-    exit_status = WEXITSTATUS(status);
-  }
-
-  if (WIFSIGNALED(status)) {
-    term_signal = WTERMSIG(status);
-  }
+  ev_io_stop(EV_A_ &process->io_child_watcher);
+  
+  /* FIXME: no way to get exit_status and term_signal :( */
 
   if (process->exit_cb) {
     process->exit_cb((uv_handle_t *)process, exit_status, term_signal);
@@ -176,6 +169,7 @@ int uv_spawn(uv_loop_t* loop, uv_process_t* process,
   int signal_pipe[2] = { -1, -1 };
   struct pollfd pfd;
 #endif
+  int exit_pipe[2] = { -1, -1 };
   int status;
   pid_t pid;
   int flags;
@@ -224,6 +218,8 @@ int uv_spawn(uv_loop_t* loop, uv_process_t* process,
   if (uv__make_pipe(signal_pipe, UV__F_NONBLOCK))
     goto error;
 #endif
+  if (uv__make_pipe(exit_pipe, UV__F_NONBLOCK))
+    goto error;
 
   pid = fork();
 
@@ -232,6 +228,7 @@ int uv_spawn(uv_loop_t* loop, uv_process_t* process,
     uv__close(signal_pipe[0]);
     uv__close(signal_pipe[1]);
 #endif
+    uv__close(exit_pipe[0]);
     environ = save_our_env;
     goto error;
   }
@@ -296,12 +293,14 @@ int uv_spawn(uv_loop_t* loop, uv_process_t* process,
   assert((status == 1) && "poll() on pipe read end failed");
   uv__close(signal_pipe[0]);
 #endif
+  uv__close(exit_pipe[0]);
+  uv__close(exit_pipe[1]);
 
   process->pid = pid;
 
-  ev_child_init(&process->child_watcher, uv__chld, pid, 0);
-  ev_child_start(process->loop->ev, &process->child_watcher);
-  process->child_watcher.data = process;
+  ev_io_init(&process->io_child_watcher, uv__io_chld, exit_pipe[0], EV_READ);
+  ev_io_start(process->loop->ev, &process->io_child_watcher);
+  process->io_child_watcher.data = process;
 
   if (stdin_pipe[1] >= 0) {
     assert(options.stdin_stream);

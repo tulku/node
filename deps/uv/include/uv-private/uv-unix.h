@@ -170,7 +170,7 @@ typedef void* uv_lib_t;
   int retcode;
 
 #define UV_PROCESS_PRIVATE_FIELDS \
-  ev_child child_watcher;
+  ev_io io_child_watcher;
 
 #define UV_THREAD_PRIVATE_FIELDS   \
   ev_async thread_watcher;         \

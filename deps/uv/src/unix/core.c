@@ -139,7 +139,7 @@ void uv_close(uv_handle_t* handle, uv_close_cb close_cb) {
 
     case UV_PROCESS:
       process = (uv_process_t*)handle;
-      ev_child_stop(process->loop->ev, &process->child_watcher);
+      ev_io_stop(process->loop->ev, &process->io_child_watcher);
       break;
 
     case UV_THREAD:
@@ -263,7 +263,7 @@ void uv__finish_close(uv_handle_t* handle) {
       break;
 
     case UV_PROCESS:
-      assert(!ev_is_active(&((uv_process_t*)handle)->child_watcher));
+      assert(!ev_is_active(&((uv_process_t*)handle)->io_child_watcher));
       break;
       
     case UV_THREAD:
