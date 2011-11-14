@@ -59,6 +59,7 @@ static void uv__io_chld(EV_P_ ev_io* watcher, int revents) {
 
 #define UV__F_IPC        (1 << 0)
 #define UV__F_NONBLOCK   (1 << 1)
+#define UV__F_NOCLOEXEC  (1 << 2)
 
 static int uv__make_socketpair(int fds[2], int flags) {
 #ifdef SOCK_NONBLOCK
@@ -99,9 +100,10 @@ static int uv__make_socketpair(int fds[2], int flags) {
 
 static int uv__make_pipe(int fds[2], int flags) {
 #if HAVE_PIPE2
-  int fl;
+  int fl = 0;
 
-  fl = O_CLOEXEC;
+  if (!flags & UV__F_NOCLOEXEC)
+    fl = O_CLOEXEC;
 
   if (flags & UV__F_NONBLOCK)
     fl |= O_NONBLOCK;
@@ -122,8 +124,10 @@ static int uv__make_pipe(int fds[2], int flags) {
   if (pipe(fds))
     return -1;
 
-  uv__cloexec(fds[0], 1);
-  uv__cloexec(fds[1], 1);
+  if (!flags & UV__F_NOCLOEXEC) {
+    uv__cloexec(fds[0], 1);
+    uv__cloexec(fds[1], 1);
+  }
 
   if (flags & UV__F_NONBLOCK) {
     uv__nonblock(fds[0], 1);
@@ -218,7 +222,7 @@ int uv_spawn(uv_loop_t* loop, uv_process_t* process,
   if (uv__make_pipe(signal_pipe, UV__F_NONBLOCK))
     goto error;
 #endif
-  if (uv__make_pipe(exit_pipe, UV__F_NONBLOCK))
+  if (uv__make_pipe(exit_pipe, UV__F_NONBLOCK | UV__F_NOCLOEXEC))
     goto error;
 
   pid = fork();
