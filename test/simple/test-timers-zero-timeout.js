@@ -19,18 +19,40 @@
 // OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE
 // USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-// Can't test this when 'make test' doesn't assign a tty to the stdout.
 var common = require('../common');
 var assert = require('assert');
 
-var exceptionCaught = false;
+// https://github.com/joyent/node/issues/2079 - zero timeout drops extra args
+(function() {
+  var ncalled = 0;
 
-try {
-  process.stdout.end();
-} catch(e) {
-  exceptionCaught = true;
-  assert.ok(common.isError(e));
-  assert.equal('process.stdout cannot be closed', e.message);
-}
+  setTimeout(f, 0, 'foo', 'bar', 'baz');
 
-assert.ok(exceptionCaught);
+  function f(a, b, c) {
+    assert.equal(a, 'foo');
+    assert.equal(b, 'bar');
+    assert.equal(c, 'baz');
+    ncalled++;
+  }
+
+  process.on('exit', function() {
+    assert.equal(ncalled, 1);
+  });
+})();
+
+(function() {
+  var ncalled = 0;
+
+  var iv = setInterval(f, 0, 'foo', 'bar', 'baz');
+
+  function f(a, b, c) {
+    assert.equal(a, 'foo');
+    assert.equal(b, 'bar');
+    assert.equal(c, 'baz');
+    if (++ncalled == 3) clearTimeout(iv);
+  }
+
+  process.on('exit', function() {
+    assert.equal(ncalled, 3);
+  });
+})();

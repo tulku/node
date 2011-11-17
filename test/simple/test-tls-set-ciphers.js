@@ -19,18 +19,43 @@
 // OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE
 // USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-// Can't test this when 'make test' doesn't assign a tty to the stdout.
 var common = require('../common');
 var assert = require('assert');
+var exec = require('child_process').exec;
+var tls = require('tls');
+var fs = require('fs');
 
-var exceptionCaught = false;
-
-try {
-  process.stdout.end();
-} catch(e) {
-  exceptionCaught = true;
-  assert.ok(common.isError(e));
-  assert.equal('process.stdout cannot be closed', e.message);
+if (process.platform === 'win32') {
+  console.log("Skipping test, you probably don't have openssl installed.");
+  process.exit();
 }
 
-assert.ok(exceptionCaught);
+var options = {
+  key: fs.readFileSync(common.fixturesDir + '/keys/agent2-key.pem'),
+  cert: fs.readFileSync(common.fixturesDir + '/keys/agent2-cert.pem'),
+  ciphers: 'NULL-MD5' // it's ultra-fast!
+};
+
+var reply = 'I AM THE WALRUS'; // something recognizable
+var nconns = 0;
+var response = '';
+
+process.on('exit', function() {
+  assert.equal(nconns, 1);
+  assert.notEqual(response.indexOf(reply), -1);
+});
+
+var server = tls.createServer(options, function(conn) {
+  conn.end(reply);
+  nconns++;
+});
+
+server.listen(common.PORT, '127.0.0.1', function() {
+  var cmd = 'openssl s_client -cipher NULL-MD5 -connect 127.0.0.1:' + common.PORT;
+
+  exec(cmd, function(err, stdout, stderr) {
+    if (err) throw err;
+    response = stdout;
+    server.close();
+  });
+});
