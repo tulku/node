@@ -151,7 +151,7 @@ static unsigned long crypto_id_cb(void) {
 
 void SecureContext::Initialize(Handle<Object> target) {
   HandleScope scope;
-  NODE_STATICS_NEW(node_crypto, CryptoStatics, statics);
+  CryptoStatics *statics = NODE_STATICS_GET(node_crypto, CryptoStatics);
 
   Local<FunctionTemplate> t = FunctionTemplate::New(SecureContext::New);
   statics->secure_context_constructor = Persistent<FunctionTemplate>::New(t);
@@ -4266,7 +4266,7 @@ Handle<Value> RandomBytes(const Arguments& args) {
 
 void InitCrypto(Handle<Object> target) {
   HandleScope scope;
-  CryptoStatics *statics = NODE_STATICS_GET(node_crypto, CryptoStatics);
+  NODE_STATICS_NEW(node_crypto, CryptoStatics, statics);
 
   SSL_library_init();
   OpenSSL_add_all_algorithms();
