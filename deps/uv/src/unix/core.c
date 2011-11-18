@@ -690,7 +690,7 @@ int uv_getaddrinfo(uv_loop_t* loop,
   uv_ref(loop);
 
   req = eio_custom(getaddrinfo_thread_proc, EIO_PRI_DEFAULT,
-      uv_getaddrinfo_done, handle, loop);
+      uv_getaddrinfo_done, handle, &loop->uv_eio_channel);
   assert(req);
   assert(req->data == handle);
 
