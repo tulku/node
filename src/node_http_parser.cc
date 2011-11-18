@@ -99,6 +99,7 @@ public:
     char* current_buffer_data;
     size_t current_buffer_len;
     HttpStatics() {
+      memset(&settings, 0, sizeof(http_parser_settings));
       current_buffer = 0;
       current_buffer_data = 0;
     }

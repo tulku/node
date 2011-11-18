@@ -71,6 +71,9 @@ class CaresWrapStatics : public ModuleStatics {
 public:
     Persistent<String> oncomplete_sym;
     struct ares_channeldata *ares_channel;
+    CaresWrapStatics() {
+      ares_channel = 0;
+    }
 };
 
 typedef class ReqWrap<uv_getaddrinfo_t> GetAddrInfoReqWrap;
