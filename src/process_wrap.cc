@@ -194,9 +194,9 @@ class ProcessWrap : public HandleWrap {
         Get(String::NewSymbol("windowsVerbatimArguments"))->IsTrue();
 #endif
 
+    int r;
 #if defined(NODE_FORK_ISOLATE)
     // options.fork
-    int r;
     Local<Value> fork_v = js_options->Get(String::New("fork"));    
     if (fork_v->IsBoolean() && fork_v->BooleanValue()) {
       Isolate *isolate = node::Isolate::New();
@@ -248,9 +248,12 @@ class ProcessWrap : public HandleWrap {
 
     int r = 0;
     if(!wrap->is_exited_) {
+#if defined(NODE_FORK_ISOLATE)
       if(wrap->is_isolate_) {
         r = uv_thread_get_shared(&wrap->thread_, IsolateStop, &signal);
-      } else {
+      } else
+#endif
+      {
         r = uv_process_kill(&wrap->process_, signal);
       }
     }
