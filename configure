@@ -89,6 +89,11 @@ parser.add_option("--with-dtrace",
     dest="with_dtrace",
     help="Build with DTrace (experimental)")
 
+parser.add_option("--isolate",
+    action="store_true",
+    dest="isolate",
+    help="Build with Isolate support")
+
 # CHECKME does this still work with recent releases of V8?
 parser.add_option("--gdb",
     action="store_true",
@@ -151,6 +156,7 @@ def configure_node(o):
   o['variables']['node_use_dtrace'] = 'true' if options.with_dtrace else 'false'
   o['variables']['host_arch'] = host_arch()
   o['variables']['target_arch'] = target_arch()
+  o['variables']['node_isolate'] = 'true' if options.isolate else 'false'
 
   # TODO move to node.gyp
   if sys.platform == 'sunos5':

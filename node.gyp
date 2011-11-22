@@ -8,6 +8,7 @@
     'node_use_dtrace': 'false',
     'node_use_openssl%': 'true',
     'node_use_system_openssl%': 'false',
+    'node_isolate': 'true',
     'library_files': [
       'src/node.js',
       'lib/_debugger.js',
@@ -137,6 +138,13 @@
             }]]
         }, {
           'defines': [ 'HAVE_OPENSSL=0' ]
+        }],
+        
+        [ 'node_isolate=="true"', {
+          'defines': [
+            'NODE_FORK_ISOLATE',
+            'NODE_LIBRARY'
+          ],
         }],
 
         [ 'node_use_dtrace=="true"', {
