@@ -29,7 +29,11 @@
 #   define NODE_EXTERN __declspec(dllimport)
 # endif
 #else
-# define NODE_EXTERN /* nothing */
+# ifndef BUILDING_NODE_EXTENSION
+#   define NODE_EXTERN __attribute__((visibility("default")))
+# else
+#   define NODE_EXTERN /* nothing */
+# endif
 #endif
 
 #ifdef BUILDING_NODE_EXTENSION
@@ -123,14 +127,14 @@ public:
     
 class Isolate {
 public:
-    static Isolate* GetDefault();
+    NODE_EXTERN static Isolate* GetDefault();
     static Isolate* GetCurrent();
     static uv_loop_t* GetCurrentLoop();
     int Start(uv_thread_shared_t *options);
-    int Start(int argc, char *argv[]);
-    int Stop(int signum);
-    static Isolate* New();
-    void Dispose();
+    NODE_EXTERN int Start(int argc, char *argv[]);
+    NODE_EXTERN int Stop(int signum);
+    NODE_EXTERN static Isolate* New();
+    NODE_EXTERN void Dispose();
     v8::Local<v8::Value> ErrnoException(int errorno,
         const char *syscall = NULL,
         const char *msg = "",
@@ -243,9 +247,9 @@ private:
 
 };
 
-int Start(int argc, char *argv[]);
-int Initialize(int argc, char *argv[]);
-void Dispose();
+NODE_EXTERN int Start(int argc, char *argv[]);
+NODE_EXTERN int Initialize(int argc, char *argv[]);
+NODE_EXTERN void Dispose();
 
 #define NODE_PSYMBOL(s) \
   v8::Persistent<v8::String>::New(v8::String::NewSymbol(s))
