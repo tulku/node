@@ -81,6 +81,7 @@ LOCAL_CFLAGS += \
 	-DV8_NATIVE_REGEXP \
 	-fvisibility=hidden \
 	-DV8_ANDROID_LOG_STDOUT \
+	-DV8_SHARED \
 	-iquote$(LOCAL_PATH)/src
 
 
