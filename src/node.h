@@ -128,7 +128,7 @@ public:
 class Isolate {
 public:
     NODE_EXTERN static Isolate* GetDefault();
-    static Isolate* GetCurrent();
+    NODE_EXTERN static Isolate* GetCurrent();
     static uv_loop_t* GetCurrentLoop();
     int Start(uv_thread_shared_t *options);
     NODE_EXTERN int Start(int argc, char *argv[]);
