@@ -114,6 +114,9 @@
         'cflags': [ '-Wall', '-pthread', ],
         'cflags_cc': [ '-fno-rtti', '-fno-exceptions' ],
         'ldflags': [ '-pthread', ],
+        'defines': [
+          'V8_SHARED=1',
+        ],
         'conditions': [
           [ 'target_arch=="ia32"', {
             'cflags': [ '-m32' ],
@@ -155,6 +158,9 @@
             '-Wno-unused-parameter',
           ],
         },
+        'defines': [
+          'V8_SHARED=1',
+        ],
         'target_conditions': [
           ['_type!="static_library"', {
             'xcode_settings': {'OTHER_LDFLAGS': ['-Wl,-search_paths_first']},

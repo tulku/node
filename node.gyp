@@ -8,6 +8,7 @@
     'node_use_dtrace': 'false',
     'node_use_openssl%': 'true',
     'node_use_system_openssl%': 'false',
+    'node_isolate': 'true',
     'library_files': [
       'src/node.js',
       'lib/_debugger.js',
@@ -50,12 +51,12 @@
 
   'targets': [
     {
-      'target_name': 'node',
-      'type': 'executable',
+      'target_name': 'libnode',
+      'type': 'shared_library',
 
       'dependencies': [
         'deps/http_parser/http_parser.gyp:http_parser',
-        'deps/v8/tools/gyp/v8-node.gyp:v8',
+        'deps/v8/tools/gyp/v8.gyp:v8',
         'deps/uv/uv.gyp:uv',
         'deps/zlib/zlib.gyp:zlib',
         'node_js2c#host',
@@ -78,7 +79,6 @@
         'src/node_file.cc',
         'src/node_http_parser.cc',
         'src/node_javascript.cc',
-        'src/node_main.cc',
         'src/node_os.cc',
         'src/node_script.cc',
         'src/node_string.cc',
@@ -138,6 +138,13 @@
             }]]
         }, {
           'defines': [ 'HAVE_OPENSSL=0' ]
+        }],
+        
+        [ 'node_isolate=="true"', {
+          'defines': [
+            'NODE_FORK_ISOLATE',
+            'NODE_LIBRARY'
+          ],
         }],
 
         [ 'node_use_dtrace=="true"', {
@@ -201,6 +208,36 @@
           'SubSystem': 1, # /subsystem:console
         },
       },
+    },
+
+    {
+      'target_name': 'node',
+      'type': 'executable',
+
+      'dependencies': [
+        'libnode',
+      ],
+
+      'include_dirs': [
+        'src',
+        'deps/v8/include',
+        'deps/uv/include',
+      ],
+
+      'sources': [
+        'src/node_main.cc',
+        # node.gyp is added to the project by default.
+        'common.gypi',
+      ],
+
+      'defines': [
+        'ARCH="<(target_arch)"',
+        'PLATFORM="<(OS)"',
+        '_LARGEFILE_SOURCE',
+        '_FILE_OFFSET_BITS=64',
+      ],
+
+      'conditions': [],
     },
 
     {
