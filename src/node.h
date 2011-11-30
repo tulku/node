@@ -96,7 +96,7 @@
 
 #ifdef NODE_LIBRARY
 # define EXIT(X) node::Isolate *i = node::Isolate::GetCurrent(); if(!i->exit_status) i->exit_status = (X)
-# define RETURN_ON_EXIT(X) if(exit_status) return X
+# define RETURN_ON_EXIT(X) if(exit_status) { if(exitHandler) exitHandler(); return X; }
 # define BREAK_AND_EXIT(X) ev_break(node::Isolate::GetCurrent()->Loop()->ev, EVBREAK_ALL); EXIT(X) //FIXME: implement generically for uv
 #else
 # define EXIT(X) exit((X))
@@ -146,6 +146,7 @@ public:
     ext_statics statics_;
     int exit_status;
     int term_signal;
+    void (*exitHandler)();
 
     Isolate();
     ~Isolate();
