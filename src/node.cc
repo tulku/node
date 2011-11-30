@@ -2558,7 +2558,7 @@ int Isolate::Start(uv_thread_shared_t *hnd) {
   RETURN_ON_EXIT(exit_status);
 
   EmitExit(process);
-
+  if(exitHandler) exitHandler();
 #ifndef NDEBUG
   // Clean up.
   context.Dispose();
@@ -2597,6 +2597,7 @@ Isolate::Isolate() {
   exit_status = 0;
   term_signal = 0;
   loop_ = (this == &defaultIsolate) ? uv_default_loop(): uv_loop_new();
+  exitHandler = 0;
 }
 
 Isolate::~Isolate() {
