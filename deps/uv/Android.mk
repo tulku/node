@@ -79,6 +79,7 @@ LOCAL_SRC_FILES := \
 	src/unix/process.c \
 	src/unix/stream.c \
 	src/unix/tcp.c \
+	src/unix/thread.c \
 	src/unix/tty.c \
 	src/unix/udp.c \
 	src/unix/uv-eio.c \
