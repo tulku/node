@@ -142,7 +142,7 @@ public:
     void __FatalException(v8::TryCatch &try_catch);
     void __SetErrno(uv_err_t err);
     v8::Persistent<v8::Object> local_env;
-    uv_loop_t *Loop();
+    NODE_EXTERN uv_loop_t *Loop();
     ext_statics statics_;
     int exit_status;
     int term_signal;
