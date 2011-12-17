@@ -43,7 +43,13 @@ extern "C" {
 # endif
 #else
   /* Unix. TODO: symbol hiding */
-# define UV_EXTERN /* nothing */
+# if defined(BUILDING_UV_SHARED)
+  /* Building shared library. Export everything from c-ares as well. */
+#   define UV_EXTERN __attribute__((visibility("default")))
+#   define CARES_BUILDING_LIBRARY 1
+# else
+#  define UV_EXTERN /* nothing */
+# endif
 #endif
 
 
