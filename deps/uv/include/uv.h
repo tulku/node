@@ -42,8 +42,14 @@ extern "C" {
 #   define CARES_STATICLIB 1
 # endif
 #else
-  /* Unix. TODO: symbol hiding */
-# define UV_EXTERN /* nothing */
+  /* Unix. */
+# if defined(BUILDING_UV_SHARED)
+  /* Building shared library. Export everything from c-ares as well. */
+#   define UV_EXTERN __attribute__((visibility("default")))
+#   define CARES_BUILDING_LIBRARY 1
+# else
+#  define UV_EXTERN /* nothing */
+# endif
 #endif
 
 
