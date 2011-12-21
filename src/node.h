@@ -135,6 +135,8 @@ public:
     NODE_EXTERN int Stop(int signum);
     NODE_EXTERN static Isolate* New();
     NODE_EXTERN void Dispose();
+    NODE_EXTERN void setExitHandler(void (*)());
+
     v8::Local<v8::Value> ErrnoException(int errorno,
         const char *syscall = NULL,
         const char *msg = "",
@@ -146,7 +148,6 @@ public:
     ext_statics statics_;
     int exit_status;
     int term_signal;
-    void (*exitHandler)();
 
     Isolate();
     ~Isolate();
@@ -245,6 +246,7 @@ private:
     
     v8::Persistent<v8::Object> binding_cache;
     v8::Persistent<v8::Array> module_load_list;
+    void (*exitHandler)();
 
 };
 

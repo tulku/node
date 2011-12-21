@@ -2691,4 +2691,8 @@ void Dispose() {
   V8::Dispose();
 }
 
+void Isolate::setExitHandler(void (*exitHandler)()) {
+	this->exitHandler = exitHandler;
+}
+
 }  // namespace node
