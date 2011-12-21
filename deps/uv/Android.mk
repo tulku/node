@@ -126,6 +126,7 @@ LOCAL_CFLAGS += \
 	-DHAVE_FDATASYNC=1 \
 	-D_FORTIFY_SOURCE=2 \
 	-DPLATFORM=\"android\" \
+	-DBUILDING_UV_SHARED \
 	-Wno-unused-parameter
 
 LOCAL_EXPORT_C_INCLUDES := \
