@@ -2566,8 +2566,12 @@ int Isolate::Start(uv_thread_shared_t *hnd) {
 
   return exit_status;
 }
-    
+
 uv_loop_t *Isolate::Loop() {
+    return loop_;
+}
+
+uv_loop_t *Isolate::GetLoop() {
     return loop_;
 }
     

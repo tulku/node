@@ -94,6 +94,8 @@
 #define NODE_STRINGIFY_HELPER(n) #n
 #endif
 
+#define HAVE_ISOLATES
+
 #ifdef NODE_LIBRARY
 # define EXIT(X) node::Isolate *i = node::Isolate::GetCurrent(); if(!i->exit_status) i->exit_status = (X)
 # define RETURN_ON_EXIT(X) if(exit_status) { if(exitHandler) exitHandler(); return X; }
@@ -145,6 +147,7 @@ public:
     void __SetErrno(uv_err_t err);
     v8::Persistent<v8::Object> local_env;
     NODE_EXTERN uv_loop_t *Loop();
+    NODE_EXTERN uv_loop_t *GetLoop();
     ext_statics statics_;
     int exit_status;
     int term_signal;
