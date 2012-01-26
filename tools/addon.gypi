@@ -12,6 +12,11 @@
     'conditions': [
       [ 'OS=="mac"', {
         'libraries': [ '-undefined dynamic_lookup' ],
+        'xcode_settings': {
+          'OTHER_LDFLAGS': [
+            '-undefined dynamic_lookup'
+          ]
+        },
       }]
     ]
   }
