@@ -593,7 +593,19 @@ int64_t uv_timer_get_repeat(uv_timer_t* timer) {
 }
 
 
+static void getaddrinfo_thread_proc(eio_req *req) {}
+static void _getaddrinfo_thread_proc(eio_req *req) {
+  uv_getaddrinfo_t* handle = req->data;
+  
+  handle->retcode = getaddrinfo(handle->hostname,
+                                handle->service,
+                                handle->hints,
+                                &handle->res);
+}
+
+
 static int uv_getaddrinfo_done(eio_req* req) {
+  _getaddrinfo_thread_proc(req);
   uv_getaddrinfo_t* handle = req->data;
   struct addrinfo *res = handle->res;
 #if __sun
@@ -629,17 +641,6 @@ static int uv_getaddrinfo_done(eio_req* req) {
 
   return 0;
 }
-
-
-static void getaddrinfo_thread_proc(eio_req *req) {
-  uv_getaddrinfo_t* handle = req->data;
-
-  handle->retcode = getaddrinfo(handle->hostname,
-                                handle->service,
-                                handle->hints,
-                                &handle->res);
-}
-
 
 /* stub implementation of uv_getaddrinfo */
 int uv_getaddrinfo(uv_loop_t* loop,
