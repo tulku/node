@@ -1,7 +1,7 @@
 {
   'includes': [
     '../../build/common.gypi',
-    'v8.gyp'
+    'v8.gypi'
   ],
   'target_defaults': {
     'conditions': [
