@@ -22,8 +22,12 @@ LOCAL_SHARED_LIBRARIES += \
 LOCAL_STATIC_LIBRARIES := \
 	uv \
 	http_parser \
-	v8 \
 	pty
+
+LOCAL_WHOLE_STATIC_LIBRARIES := \
+	v8
+
+LOCAL_LDFLAGS += -rdynamic
 
 include $(BUILD_EXECUTABLE)
 
