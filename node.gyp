@@ -209,6 +209,10 @@
             'deps/v8/include/v8.h',
             'deps/v8/include/v8-debug.h',
           ],
+          'conditions': [
+            [ 'v8_postmortem_support=="true"', {
+              'dependencies': [ 'deps/v8/tools/gyp/v8.gyp:postmortem-metadata#host' ],
+            }]],
           'dependencies': [ 'deps/v8/tools/gyp/v8.gyp:v8' ],
         }],
 
