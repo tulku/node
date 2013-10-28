@@ -861,18 +861,18 @@ void SetErrno(uv_err_t err) {
 
 void Isolate::__SetErrno(uv_err_t err) {
   HandleScope scope;
+  const char *err_name;
 
   if (errno_symbol.IsEmpty()) {
     errno_symbol = NODE_PSYMBOL("errno");
   }
 
-  if (err.code == UV_UNKNOWN) {
+  if (err.code == UV_UNKNOWN || (err_name = uv_err_name(err)) == NULL) {
     char errno_buf[100];
     snprintf(errno_buf, 100, "Unknown system errno %d", err.sys_errno_);
     Context::GetCurrent()->Global()->Set(errno_symbol, String::New(errno_buf));
   } else {
-    Context::GetCurrent()->Global()->Set(errno_symbol,
-                                         String::NewSymbol(uv_err_name(err)));
+    Context::GetCurrent()->Global()->Set(errno_symbol, String::NewSymbol(err_name));
   }
 }
 
