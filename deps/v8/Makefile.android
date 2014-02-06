@@ -36,7 +36,7 @@ ANDROID_BUILDS = $(foreach mode,$(MODES), \
 
 HOST_OS = $(shell uname -s | sed -e 's/Linux/linux/;s/Darwin/mac/')
 ifeq ($(HOST_OS), linux)
-  TOOLCHAIN_DIR = linux-x86
+  TOOLCHAIN_DIR = linux-x86_64
 else
   ifeq ($(HOST_OS), mac)
     TOOLCHAIN_DIR = darwin-x86

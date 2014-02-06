@@ -88,8 +88,10 @@ LOCAL_CFLAGS += \
 	
 # node
 LOCAL_CFLAGS += \
+	-DDTRACE \
 	-DHAVE_OPENSSL \
 	-DNODE_CFLAGS=\"\" \
 	-DNODE_PREFIX=\"$(NODE_PREFIX)\" \
 	-DNODE_FORK_ISOLATE \
-	-include sys/select.h
+	-include sys/select.h \
+	#-DHAVE_PERFCTR \
